@@ -11,8 +11,8 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { auth } from "@/server/better-auth";
-import { db } from "@/server/db";
+import { getAuth } from "@/server/better-auth";
+import { getDb } from "@/server/db";
 
 /**
  * 1. CONTEXT
@@ -27,11 +27,11 @@ import { db } from "@/server/db";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const session = await auth.api.getSession({
+  const session = await getAuth().api.getSession({
     headers: opts.headers,
   });
   return {
-    db,
+    db: getDb(),
     session,
     ...opts,
   };
@@ -87,12 +87,6 @@ export const createTRPCRouter = t.router;
  */
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
-
-  if (t._config.isDev) {
-    // artificial delay in dev
-    const waitMs = Math.floor(Math.random() * 400) + 100;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
 
   const result = await next();
 

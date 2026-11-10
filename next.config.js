@@ -1,10 +1,12 @@
-/**
- * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
- * for Docker builds.
- */
-import "./src/env.js";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  outputFileTracingRoot: process.cwd(),
+  turbopack: { root: process.cwd() },
+};
 
 export default config;
+
+// Gives `next dev` the Worker bindings (local D1 under .wrangler/) through getCloudflareContext()
+initOpenNextCloudflareForDev();

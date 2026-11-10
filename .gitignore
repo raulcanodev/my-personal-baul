@@ -44,3 +44,11 @@ yarn-error.log*
 
 # idea files
 .idea
+# Keep dependency versions reproducible for this app
+!pnpm-lock.yaml
+
+# cloudflare
+.open-next
+.wrangler
+.dev.vars*
+!.dev.vars.example

@@ -9,7 +9,7 @@ const compat = new FlatCompat({
 
 export default tseslint.config(
   {
-    ignores: [".next"],
+    ignores: [".next", ".open-next", ".wrangler", "next-env.d.ts", "cloudflare-env.d.ts", "worker.ts"],
   },
   ...compat.extends("next/core-web-vitals"),
   {
@@ -57,5 +57,11 @@ export default tseslint.config(
         projectService: true,
       },
     },
+  },
+  {
+    // Keep registry components compatible with upstream; app code retains strict rules.
+    files: ["src/components/ui/**", "src/hooks/use-highlighted-code.ts"],
+    extends: [tseslint.configs.disableTypeChecked],
+    rules: { "@typescript-eslint/no-empty-function": "off" },
   },
 );

@@ -1,12 +1,8 @@
 import { type Config } from "drizzle-kit";
 
-import { env } from "@/env";
-
+// Only generates SQL into ./drizzle; wrangler applies it (db:migrate:local / db:migrate:remote)
 export default {
   schema: "./src/server/db/schema.ts",
-  dialect: "postgresql",
-  dbCredentials: {
-    url: env.DATABASE_URL,
-  },
-  tablesFilter: ["my-personal-baul_*"],
+  out: "./drizzle",
+  dialect: "sqlite",
 } satisfies Config;

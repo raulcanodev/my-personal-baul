@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "baul",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "baul",
+      "database_id": "05b2d68a-b53d-4c4a-a9c0-3b93daf28023",
+      "migrations_dir": "drizzle",
+    },
+  ],
+  // Every day at 05:00 UTC: balances and new transactions from Wise/Mercury
+  "triggers": { "crons": ["0 5 * * *"] },
+  "observability": { "enabled": true },
+}
