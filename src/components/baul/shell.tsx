@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/server/better-auth/client";
 import { Brand } from "./brand";
+import { HeaderControls } from "./header-controls";
 
 const navigation: { name: string; href: string; icon: LucideIcon }[] = [
   { name: "Resumen", href: "/dashboard", icon: LayoutGrid },
@@ -111,33 +112,36 @@ export function AppShell({
             <span className="text-muted-foreground/50">/</span>
             <span>{current}</span>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Tu cuenta"
-              className="bg-muted flex size-9 items-center justify-center rounded-full text-xs lg:hidden"
-            >
-              {initials}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="font-normal">
-                <p className="text-sm">{userName}</p>
-                <p className="text-muted-foreground text-xs">
-                  Espacio personal
-                </p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/ajustes">
-                  <Settings2 className="size-4" />
-                  Ajustes
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={signOut}>
-                <LogOut className="size-4" />
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <HeaderControls />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Tu cuenta"
+                className="bg-muted flex size-9 items-center justify-center rounded-full text-xs lg:hidden"
+              >
+                {initials}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="text-sm">{userName}</p>
+                  <p className="text-muted-foreground text-xs">
+                    Espacio personal
+                  </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/ajustes">
+                    <Settings2 className="size-4" />
+                    Ajustes
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={signOut}>
+                  <LogOut className="size-4" />
+                  Cerrar sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
         {children}
       </main>

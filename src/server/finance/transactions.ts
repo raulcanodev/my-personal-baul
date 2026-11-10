@@ -24,6 +24,7 @@ import { applyRuleToExisting } from "./connections";
 import type { FinanceContext } from "./context";
 import { newId } from "./ids";
 import { normalizeMerchant } from "./merchant";
+import { getRates, toBase } from "./money";
 
 export type TransactionFilters = {
   search?: string;
@@ -37,18 +38,35 @@ export type TransactionFilters = {
   to?: string;
 };
 
+const AMOUNT = /^[-+]?\d+(?:[.,]\d{1,2})?$/;
+
+/**
+ * Every word must appear somewhere (description, counterparty, merchant, note, account or
+ * category), in any order. A number also matches the amount, so "36,80" or "36.80" finds the
+ * €36.80 payment whatever its sign.
+ */
+function searchClauses(search: string): SQL[] {
+  // D1 caps LIKE patterns at 50 bytes, so words are trimmed and limited
+  const words = search.trim().split(/\s+/).filter(Boolean).slice(0, 8);
+  return words.map((word) => {
+    const term = `%${word.slice(0, 40)}%`;
+    const text = or(
+      like(transactions.description, term),
+      like(transactions.counterparty, term),
+      like(transactions.merchant, term),
+      like(transactions.note, term),
+      like(moneyAccounts.name, term),
+      like(categories.name, term),
+    )!;
+    if (!AMOUNT.test(word)) return text;
+    const cents = Math.round(Math.abs(Number(word.replace(",", "."))) * 100);
+    return or(text, sql`abs(${transactions.amountCents}) = ${cents}`)!;
+  });
+}
+
 function buildWhere(userId: string, f: TransactionFilters) {
   const where: SQL[] = [eq(transactions.userId, userId)];
-  if (f.search?.trim()) {
-    const term = `%${f.search.trim()}%`;
-    where.push(
-      or(
-        like(transactions.description, term),
-        like(transactions.counterparty, term),
-        like(transactions.note, term),
-      )!,
-    );
-  }
+  if (f.search?.trim()) where.push(...searchClauses(f.search));
   if (f.accountIds?.length)
     where.push(inArray(transactions.accountId, f.accountIds));
   const categoryFilters: SQL[] = [];
@@ -72,7 +90,7 @@ export async function listTransactions(
   page: { limit: number; offset: number } = { limit: 50, offset: 0 },
 ) {
   const where = buildWhere(userId, filters);
-  const [rows, [totals]] = await Promise.all([
+  const [rows, totalsByCurrency, rates] = await Promise.all([
     db
       .select({
         id: transactions.id,
@@ -100,17 +118,34 @@ export async function listTransactions(
       .orderBy(desc(transactions.date))
       .limit(page.limit)
       .offset(page.offset),
+    // Per currency so the totals can be converted; transfers between my own accounts are
+    // counted but never added to "entradas"/"salidas"
     db
       .select({
+        currency: transactions.currency,
         count: sql<number>`count(*)`,
-        inCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} > 0 then ${transactions.amountCents} end), 0)`,
-        outCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} < 0 then -${transactions.amountCents} end), 0)`,
+        inCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} > 0 and coalesce(${categories.kind}, '') <> 'transfer' then ${transactions.amountCents} end), 0)`,
+        outCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} < 0 and coalesce(${categories.kind}, '') <> 'transfer' then -${transactions.amountCents} end), 0)`,
       })
       .from(transactions)
+      .innerJoin(moneyAccounts, eq(transactions.accountId, moneyAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(where),
+      .where(where)
+      .groupBy(transactions.currency),
+    getRates(),
   ]);
-  return { items: rows, ...totals! };
+  return {
+    items: rows,
+    count: totalsByCurrency.reduce((n, t) => n + t.count, 0),
+    inCents: totalsByCurrency.reduce(
+      (n, t) => n + toBase(t.inCents, t.currency, rates),
+      0,
+    ),
+    outCents: totalsByCurrency.reduce(
+      (n, t) => n + toBase(t.outCents, t.currency, rates),
+      0,
+    ),
+  };
 }
 
 /**

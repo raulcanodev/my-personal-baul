@@ -1,0 +1,1 @@
+ALTER TABLE `money_accounts` ADD `kind` text DEFAULT 'main' NOT NULL;

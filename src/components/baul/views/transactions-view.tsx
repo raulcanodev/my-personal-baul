@@ -228,9 +228,7 @@ export function TransactionsView() {
   return (
     <>
       <PageHeader
-        title="Movimientos."
-        subtitle="Cada pequeño detalle."
-        description="Ponle categoría una vez a cada comercio y el resto llega ordenado."
+        title="Movimientos"
         actions={
           <Button
             onClick={() => setCreating(true)}
@@ -262,10 +260,23 @@ export function TransactionsView() {
         )}
 
         <div className="bg-muted overflow-hidden rounded-xl">
-          {!data ? (
+          {query.isError && !data ? (
+            <p className="text-muted-foreground py-16 text-center text-sm">
+              No se pudo cargar la búsqueda.{" "}
+              <button
+                className="text-foreground underline"
+                onClick={() => void query.refetch()}
+              >
+                Reintentar
+              </button>
+            </p>
+          ) : !data ? (
             <div className="space-y-px p-2">
               {Array.from({ length: 6 }, (_, i) => (
-                <Skeleton key={i} className="h-14 rounded-lg" />
+                <Skeleton
+                  key={i}
+                  className="bg-background/70 h-14 rounded-lg"
+                />
               ))}
             </div>
           ) : data.items.length === 0 ? (
@@ -395,7 +406,7 @@ function TransactionRow({
         </PopoverContent>
       </Popover>
       <span
-        className={`w-24 shrink-0 text-right text-sm tabular-nums ${t.amountCents > 0 ? "text-emerald-700" : ""}`}
+        className={`w-24 shrink-0 text-right text-sm tabular-nums ${t.amountCents > 0 ? "text-emerald-700 dark:text-emerald-400" : ""}`}
       >
         {money(t.amountCents, t.currency, { sign: true })}
       </span>
@@ -436,9 +447,9 @@ function CreateTransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Un movimiento a mano.</DialogTitle>
-          <DialogDescription>
-            Para efectivo o cuentas sin conexión al banco.
+          <DialogTitle>Nuevo movimiento</DialogTitle>
+          <DialogDescription className="sr-only">
+            Movimiento manual
           </DialogDescription>
         </DialogHeader>
         <form
@@ -481,7 +492,7 @@ function CreateTransactionDialog({
               placeholder="Café con amigos"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="tx-amount">Importe</Label>
               <Input
@@ -503,13 +514,13 @@ function CreateTransactionDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="tx-account">Cuenta</Label>
               <NativeSelect
                 id="tx-account"
                 name="account"
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 {accounts.map((a) => (
                   <NativeSelectOption key={a.id} value={a.id}>
@@ -523,7 +534,7 @@ function CreateTransactionDialog({
               <NativeSelect
                 id="tx-category"
                 name="category"
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 <NativeSelectOption value="">Sin categoría</NativeSelectOption>
                 {categories.map((c) => (

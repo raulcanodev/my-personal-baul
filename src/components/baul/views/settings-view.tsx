@@ -48,18 +48,10 @@ export function SettingsView() {
 
   return (
     <>
-      <PageHeader
-        title="Ajustes."
-        subtitle="A tu manera."
-        description="Categorías y conexiones con tus bancos."
-      />
+      <PageHeader title="Ajustes" />
 
       <section className="mt-10 max-w-3xl">
         <h2 className="text-lg font-medium tracking-tight">Categorías</h2>
-        <p className="text-muted-foreground mt-1 text-xs">
-          El ámbito decide si cuenta como personal o de trabajo. Las
-          transferencias no cuentan como gasto.
-        </p>
         <div className="bg-muted mt-4 overflow-hidden rounded-xl">
           <ul className="divide-background divide-y">
             {(categories.data ?? []).map((c) => (

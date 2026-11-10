@@ -16,6 +16,10 @@
       "migrations_dir": "drizzle",
     },
   ],
+  // Cloudflare creates the DNS record and certificate for it (wins over the `*` CNAME to Vercel)
+  "routes": [{ "pattern": "baul.raulcano.dev", "custom_domain": true }],
+  // Keep baul.rawraul.workers.dev as a fallback (wrangler turns it off once routes exist)
+  "workers_dev": true,
   // Every day at 05:00 UTC: balances and new transactions from Wise/Mercury
   "triggers": { "crons": ["0 5 * * *"] },
   "observability": { "enabled": true },

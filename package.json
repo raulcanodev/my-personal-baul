@@ -12,12 +12,12 @@
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview --port 43871",
+    "preview": "SKIP_ENV_VALIDATION=1 opennextjs-cloudflare build && opennextjs-cloudflare preview --port 43871",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply baul --local",
     "db:migrate:remote": "CI=true wrangler d1 migrations apply baul --remote",
     "user:create": "node scripts/create-user.mjs",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy": "SKIP_ENV_VALIDATION=1 opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {

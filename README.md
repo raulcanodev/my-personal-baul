@@ -45,10 +45,6 @@ Los componentes de registro shadcn conservan las reglas normales de ESLint; las 
 
 ### Dominio
 
-Producción: `https://baul.rawraul.workers.dev`. Destino: `baul.raulcano.dev`, en cuanto el DNS de raulcano.dev esté en Cloudflare. Entonces se añade a `wrangler.jsonc`:
+Producción: `https://baul.raulcano.dev` (custom domain del Worker; el DNS de raulcano.dev está en Cloudflare desde el 10/11/2026, con el portfolio y `games` en Vercel como CNAME en DNS only). `https://baul.rawraul.workers.dev` sigue activo como respaldo.
 
-```jsonc
-"routes": [{ "pattern": "baul.raulcano.dev", "custom_domain": true }],
-```
-
-y se vuelve a hacer `pnpm run deploy`.
+Registro: el primer usuario se registra libremente; después solo con `SIGNUP_CODE` (`pnpm wrangler secret put SIGNUP_CODE`), y sin código queda cerrado.

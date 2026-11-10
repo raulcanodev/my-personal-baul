@@ -3,6 +3,7 @@ import "@/styles/globals.css";
 import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
 
+import { ThemeProvider } from "@/components/baul/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -24,8 +25,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f6f2",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1a17" },
+  ],
   viewportFit: "cover",
+  // Android: the keyboard shrinks the layout (and 100dvh), so dialogs fit above it
+  interactiveWidget: "resizes-content",
   width: "device-width",
   initialScale: 1,
 };
@@ -39,12 +45,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${geist.variable}`}>
+    <html lang="es" className={`${geist.variable}`} suppressHydrationWarning>
       <body>
-        <TRPCReactProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-center" />
-        </TRPCReactProvider>
+        <ThemeProvider>
+          <TRPCReactProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster position="top-center" />
+          </TRPCReactProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

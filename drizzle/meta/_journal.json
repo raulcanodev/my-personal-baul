@@ -15,6 +15,20 @@
       "when": 1794346947389,
       "tag": "0001_tiresome_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794349643251,
+      "tag": "0002_handy_lizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794351293187,
+      "tag": "0003_early_skrulls",
+      "breakpoints": true
     }
   ]
 }

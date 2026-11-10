@@ -13,7 +13,10 @@ const DESCRIPTION_PATTERNS = [
 const NOISE =
   /\b(card|payment|transaction|purchase|pago|compra|tarjeta|transfer|transferencia|sent|received|money|ref|via|eur|usd|gbp)\b/g;
 
-export function normalizeMerchant(counterparty: string | null | undefined, description: string) {
+export function normalizeMerchant(
+  counterparty: string | null | undefined,
+  description: string,
+) {
   let source = counterparty?.trim() ? counterparty : description;
   if (!counterparty?.trim()) {
     for (const pattern of DESCRIPTION_PATTERNS) {

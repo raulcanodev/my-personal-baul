@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  PiggyBank,
   Landmark,
   Link2,
   Loader2,
@@ -55,9 +56,7 @@ export function AccountsView() {
   return (
     <>
       <PageHeader
-        title="Cuentas."
-        subtitle="Cada cosa en su lugar."
-        description="Wise y Mercury se actualizan solos cada día. El resto, a mano."
+        title="Cuentas"
         actions={
           <>
             <Button variant="secondary" onClick={() => setDialog("manual")}>
@@ -81,7 +80,6 @@ export function AccountsView() {
               inverted
               label="Dinero total"
               value={money(accounts.data.totalCents)}
-              note="Todo convertido a euros al cambio de hoy"
               icon={<Wallet className="size-4" />}
             />
             {Object.entries(byCurrency)
@@ -113,13 +111,10 @@ export function AccountsView() {
 
       <section className="mt-10">
         <h2 className="text-lg font-medium tracking-tight">Cuentas manuales</h2>
-        <p className="text-muted-foreground mt-1 text-xs">
-          Efectivo, otros bancos, lo que no tiene API.
-        </p>
         <AccountList
           accounts={items.filter((a) => !a.connectionId)}
           onEdit={setDialog}
-          empty="Ninguna todavía."
+          empty="Ninguna."
         />
       </section>
 
@@ -153,9 +148,12 @@ function ConnectionSection({
   const utils = api.useUtils();
   const sync = api.finance.connections.sync.useMutation({
     onSuccess: async (r) => {
-      toast.success(
-        `${connection.name} al día · ${r.syncedCount} movimientos revisados`,
-      );
+      if (r.errors.length)
+        toast.warning(`${connection.name}: ${r.errors.join(" · ")}`);
+      else
+        toast.success(
+          `${connection.name} al día · ${r.syncedCount} movimientos revisados`,
+        );
       await utils.finance.invalidate();
     },
     onError: async (e) => {
@@ -175,10 +173,10 @@ function ConnectionSection({
             </span>
           </h2>
           <p
-            className={`mt-1 text-xs ${connection.lastError ? "text-red-700" : "text-muted-foreground"}`}
+            className={`mt-1 text-xs ${connection.lastError ? "text-red-700 dark:text-red-400" : "text-muted-foreground"}`}
           >
             {connection.lastError
-              ? `Último intento falló: ${connection.lastError}`
+              ? `${connection.lastSyncedAt ? `Sincronizado ${relativeTime(connection.lastSyncedAt)}, con avisos` : "No se pudo sincronizar"}: ${connection.lastError}`
               : `Sincronizado ${relativeTime(connection.lastSyncedAt)}`}
           </p>
         </div>
@@ -205,6 +203,21 @@ function ConnectionSection({
   );
 }
 
+// Wise names accounts "PROFILE - EUR" and jars "PROFILE - Jar name EUR"
+const profileOf = (name: string) => name.split(" - ")[0] ?? name;
+const jarName = (name: string) =>
+  name.split(" - ").slice(1).join(" - ") || name;
+
+/** Main balances first, each followed by the jars of the same profile */
+function sortWithJars(accounts: Account[]) {
+  return [...accounts].sort(
+    (a, b) =>
+      profileOf(a.name).localeCompare(profileOf(b.name)) ||
+      (a.kind === b.kind ? 0 : a.kind === "savings" ? 1 : -1) ||
+      a.name.localeCompare(b.name),
+  );
+}
+
 function AccountList({
   accounts,
   onEdit,
@@ -222,14 +235,19 @@ function AccountList({
         </p>
       ) : (
         <ul className="divide-background divide-y">
-          {accounts.map((a) => (
+          {sortWithJars(accounts).map((a) => (
             <li key={a.id}>
               <button
                 onClick={() => onEdit(a)}
-                className="hover:bg-foreground/[0.03] flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5"
+                className={`hover:bg-foreground/[0.03] flex w-full items-center gap-3 py-3.5 pr-4 text-left sm:pr-5 ${a.kind === "savings" ? "pl-9 sm:pl-11" : "pl-4 sm:pl-5"}`}
               >
+                {a.kind === "savings" && (
+                  <PiggyBank className="text-muted-foreground size-4 shrink-0" />
+                )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{a.name}</p>
+                  <p className="truncate text-sm">
+                    {a.kind === "savings" ? jarName(a.name) : a.name}
+                  </p>
                   <p className="text-muted-foreground text-xs">
                     {SCOPE_LABEL[a.scope]} · {a.currency}
                     {a.balanceUpdatedAt &&
@@ -266,9 +284,13 @@ function ConnectBankDialog({
   const [provider, setProvider] = useState<"wise" | "mercury">("wise");
   const add = api.finance.connections.add.useMutation({
     onSuccess: async (r) => {
-      toast.success(
-        `Conectado · ${r.accounts} cuentas, ${r.syncedCount} movimientos`,
-      );
+      if (r.errors.length) {
+        toast.warning(`Conectado, con avisos: ${r.errors.join(" · ")}`);
+      } else {
+        toast.success(
+          `Conectado · ${r.accounts} cuentas, ${r.syncedCount} movimientos`,
+        );
+      }
       onOpenChange(false);
       await utils.finance.invalidate();
     },
@@ -278,12 +300,11 @@ function ConnectBankDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Conectar un banco.</DialogTitle>
+          <DialogTitle>Conectar banco</DialogTitle>
           <DialogDescription>
             {provider === "wise"
-              ? "Wise → Ajustes → Tokens de API. Un token de solo lectura es suficiente."
-              : "Mercury → Settings → API Tokens. Uno de solo lectura es suficiente."}{" "}
-            La clave se guarda cifrada y no se vuelve a mostrar.
+              ? "Wise → Settings → API tokens (solo lectura)."
+              : "Mercury → Settings → API Tokens (solo lectura)."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -369,11 +390,9 @@ function AccountDialog({
     <Dialog open={account !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{editing ? editing.name : "Cuenta manual."}</DialogTitle>
-          <DialogDescription>
-            {synced
-              ? "El saldo llega del banco; aquí solo cambias cómo se ve."
-              : "Actualiza el saldo cuando quieras: queda guardado en el histórico."}
+          <DialogTitle>{editing ? editing.name : "Cuenta manual"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Datos de la cuenta
           </DialogDescription>
         </DialogHeader>
         <form
@@ -412,14 +431,14 @@ function AccountDialog({
               placeholder="Efectivo, ING, Revolut…"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="acc-scope">Ámbito</Label>
               <NativeSelect
                 id="acc-scope"
                 name="scope"
                 defaultValue={editing?.scope ?? "personal"}
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 <NativeSelectOption value="personal">
                   Personal
@@ -434,7 +453,7 @@ function AccountDialog({
                   id="acc-currency"
                   name="currency"
                   defaultValue="EUR"
-                  className="w-full [&_select]:h-9"
+                  className="w-full"
                 >
                   {["EUR", "USD", "GBP"].map((c) => (
                     <NativeSelectOption key={c} value={c}>

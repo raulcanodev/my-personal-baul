@@ -1,6 +1,10 @@
 import { and, asc, eq } from "drizzle-orm";
 
-import { categories, type CATEGORY_KINDS, type SCOPES } from "@/server/db/schema";
+import {
+  categories,
+  type CATEGORY_KINDS,
+  type SCOPES,
+} from "@/server/db/schema";
 import type { FinanceContext } from "./context";
 import { newId } from "./ids";
 

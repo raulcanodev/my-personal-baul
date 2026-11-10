@@ -6,6 +6,7 @@ import type {
   ProviderBalance,
   ProviderTransaction,
 } from "./types";
+import { wiseFetch } from "./wise-sca";
 
 export function createWiseAdapter(): BankProviderAdapter {
   const baseUrl = "https://api.wise.com";
@@ -29,7 +30,7 @@ export function createWiseAdapter(): BankProviderAdapter {
       const accounts: Array<{ id: string; name: string }> = [];
       for (const profile of profiles) {
         const balancesRes = await fetch(
-          `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD`,
+          `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD,SAVINGS`,
           {
             headers: { Authorization: `Bearer ${apiKey}` },
           },
@@ -52,7 +53,7 @@ export function createWiseAdapter(): BankProviderAdapter {
       return { accounts };
     },
 
-    fetchTransactions: async ({ apiKey, accountId, fromDate }) => {
+    fetchTransactions: async ({ apiKey, accountId, fromDate, signingKey }) => {
       let resolvedProfileId: string;
       let resolvedBalanceId: string;
       let resolvedCurrency: string;
@@ -71,7 +72,7 @@ export function createWiseAdapter(): BankProviderAdapter {
         }
 
         const balancesRes = await fetch(
-          `${baseUrl}/v4/profiles/${profileId}/balances?types=STANDARD`,
+          `${baseUrl}/v4/profiles/${profileId}/balances?types=STANDARD,SAVINGS`,
           {
             headers: { Authorization: `Bearer ${apiKey}` },
           },
@@ -121,7 +122,7 @@ export function createWiseAdapter(): BankProviderAdapter {
 
         for (const profile of profiles) {
           const balancesRes = await fetch(
-            `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD`,
+            `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD,SAVINGS`,
             {
               headers: { Authorization: `Bearer ${apiKey}` },
             },
@@ -166,9 +167,8 @@ export function createWiseAdapter(): BankProviderAdapter {
       params.set("intervalEnd", now.toISOString());
 
       const url = `${baseUrl}/v1/profiles/${resolvedProfileId}/balance-statements/${resolvedBalanceId}/statement.json?${params.toString()}`;
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      // Baúl: statements may need SCA (signed one-time token), see wise-sca.ts
+      const response = await wiseFetch(url, apiKey, signingKey);
 
       if (!response.ok) {
         const body = await response.text().catch(() => "");
@@ -230,7 +230,7 @@ export function createWiseAdapter(): BankProviderAdapter {
       const balances: ProviderBalance[] = [];
       for (const profile of profiles) {
         const balancesRes = await fetch(
-          `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD`,
+          `${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD,SAVINGS`,
           {
             headers: { Authorization: `Bearer ${apiKey}` },
           },
@@ -240,14 +240,21 @@ export function createWiseAdapter(): BankProviderAdapter {
           const profileBalances = (await balancesRes.json()) as Array<{
             id: number;
             currency: string;
+            type?: string;
+            name?: string | null;
             amount: { value: number; currency: string };
           }>;
           for (const b of profileBalances) {
             balances.push({
               accountId: `${profile.id}:${b.id}`,
-              accountName: `${profile.fullName} - ${b.currency}`,
+              // Baúl: savings jars get their own name ("ZENEX - Savings EUR")
+              accountName:
+                b.type === "SAVINGS"
+                  ? `${profile.fullName} - ${b.name ?? "Savings"} ${b.currency}`
+                  : `${profile.fullName} - ${b.currency}`,
               balance: b.amount.value,
               currency: b.amount.currency,
+              kind: b.type === "SAVINGS" ? "savings" : "main",
             });
           }
         }

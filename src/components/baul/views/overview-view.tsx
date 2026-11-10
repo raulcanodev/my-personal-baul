@@ -44,15 +44,13 @@ export function OverviewView() {
   return (
     <>
       <PageHeader
-        title="Todo en orden."
-        subtitle="Tu dinero, un poco más claro."
-        description="Un vistazo a lo que tienes, lo que entra y lo que se va."
+        title="Resumen"
         actions={
           <NativeSelect
             aria-label="Mes"
             value={month}
             onChange={(e) => setMonth(e.currentTarget.value)}
-            className="w-44 [&_select]:h-9"
+            className="w-44"
           >
             {lastMonths(12).map((m) => (
               <NativeSelectOption key={m} value={m}>
@@ -104,13 +102,7 @@ export function OverviewView() {
           href="/dashboard/movimientos?categoria=__none"
           className="bg-muted/60 hover:bg-muted mt-3 flex items-center justify-between rounded-xl px-5 py-4 text-sm transition-colors"
         >
-          <span>
-            {data.uncategorizedCount} movimientos sin categoría
-            <span className="text-muted-foreground">
-              {" "}
-              · ordénalos para que los números cuadren
-            </span>
-          </span>
+          <span>{data.uncategorizedCount} movimientos sin categoría</span>
           <ArrowRight className="size-4" />
         </Link>
       )}
@@ -120,9 +112,6 @@ export function OverviewView() {
           <div className="flex items-start justify-between">
             <div>
               <h2 className="font-medium">Entradas y salidas</h2>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Sin contar transferencias entre tus cuentas
-              </p>
             </div>
             <span className="text-muted-foreground text-xs">
               Últimos 6 meses

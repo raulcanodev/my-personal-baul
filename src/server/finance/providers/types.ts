@@ -21,6 +21,8 @@ export type ProviderBalance = {
   accountName: string;
   balance: number;
   currency: string;
+  /** Baúl: Wise savings jars */
+  kind?: "main" | "savings";
 };
 
 export type BankProviderAdapter = {
@@ -28,6 +30,8 @@ export type BankProviderAdapter = {
     apiKey: string;
     accountId?: string;
     fromDate?: Date;
+    /** Wise SCA signing key (PKCS#8 PEM), see wise-sca.ts */
+    signingKey?: string;
   }) => Promise<{ transactions: ProviderTransaction[] }>;
   fetchAccounts: (args: {
     apiKey: string;

@@ -84,7 +84,12 @@ export type BankProvider = (typeof BANK_PROVIDERS)[number];
 export const CATEGORY_KINDS = ["expense", "income", "transfer"] as const;
 export const SCOPES = ["personal", "work"] as const;
 export type Scope = (typeof SCOPES)[number];
-export const BILLING_CYCLES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+export const BILLING_CYCLES = [
+  "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+] as const;
 export type BillingCycle = (typeof BILLING_CYCLES)[number];
 
 const userRef = () =>
@@ -113,6 +118,9 @@ export const bankConnections = sqliteTable("bank_connections", {
   name: text("name").notNull(),
   /** AES-GCM with BETTER_AUTH_SECRET, never returned to the client */
   apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  /** Wise SCA: private key (PKCS#8 PEM) encrypted like the API key; the public one is shown to paste in Wise */
+  scaPrivateKeyEncrypted: text("sca_private_key_encrypted"),
+  scaPublicKey: text("sca_public_key"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
   lastError: text("last_error"),
@@ -132,13 +140,22 @@ export const moneyAccounts = sqliteTable(
     name: text("name").notNull(),
     currency: text("currency").notNull().default("EUR"),
     scope: text("scope", { enum: SCOPES }).notNull().default("personal"),
+    /** "savings" for Wise jars, shown nested under their profile */
+    kind: text("kind", { enum: ["main", "savings"] })
+      .notNull()
+      .default("main"),
     balanceCents: integer("balance_cents").notNull().default(0),
     balanceUpdatedAt: integer("balance_updated_at", { mode: "timestamp_ms" }),
-    isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    isArchived: integer("is_archived", { mode: "boolean" })
+      .notNull()
+      .default(false),
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("money_accounts_provider").on(t.connectionId, t.providerAccountId),
+    uniqueIndex("money_accounts_provider").on(
+      t.connectionId,
+      t.providerAccountId,
+    ),
   ],
 );
 

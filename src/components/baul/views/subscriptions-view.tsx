@@ -138,9 +138,7 @@ export function SubscriptionsView() {
   return (
     <>
       <PageHeader
-        title="Suscripciones."
-        subtitle="Lo que pagas sin pensar."
-        description="Separadas entre lo que necesitas para trabajar y tus caprichos."
+        title="Suscripciones"
         actions={
           <Button onClick={() => setEditing("new")}>
             <Plus className="size-4" />
@@ -166,13 +164,11 @@ export function SubscriptionsView() {
             <StatCard
               label="Trabajo"
               value={money(summary.workMonthlyCents)}
-              note="Servidores, IA, herramientas"
               icon={<Briefcase className="size-4" />}
             />
             <StatCard
               label="Personal"
               value={money(summary.personalMonthlyCents)}
-              note="Caprichos y vida"
               icon={<Heart className="size-4" />}
             />
           </>
@@ -192,13 +188,16 @@ export function SubscriptionsView() {
           {!subs.data ? (
             <div className="space-y-px p-2">
               {Array.from({ length: 4 }, (_, i) => (
-                <Skeleton key={i} className="h-14 rounded-lg" />
+                <Skeleton
+                  key={i}
+                  className="bg-background/70 h-14 rounded-lg"
+                />
               ))}
             </div>
           ) : visible.length === 0 ? (
             <p className="text-muted-foreground py-16 text-center text-sm">
               {subs.data.items.length === 0
-                ? "Apunta tu primera suscripción: el servidor, la IA, Netflix…"
+                ? "Sin suscripciones todavía."
                 : "Nada con estos filtros."}
             </p>
           ) : (
@@ -292,10 +291,10 @@ function SubscriptionDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {editing ? editing.name : "Nueva suscripción."}
+            {editing ? editing.name : "Nueva suscripción"}
           </DialogTitle>
-          <DialogDescription>
-            El importe tal cual te lo cobran, en su moneda.
+          <DialogDescription className="sr-only">
+            Datos de la suscripción
           </DialogDescription>
         </DialogHeader>
         <form
@@ -335,7 +334,7 @@ function SubscriptionDialog({
               placeholder="Claude, Hetzner, Netflix…"
             />
           </div>
-          <div className="grid grid-cols-[1fr_6rem_1fr] gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="sub-amount">Importe</Label>
               <Input
@@ -353,7 +352,7 @@ function SubscriptionDialog({
                 id="sub-currency"
                 name="currency"
                 defaultValue={editing?.currency ?? "EUR"}
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 {["EUR", "USD", "GBP"].map((c) => (
                   <NativeSelectOption key={c} value={c}>
@@ -368,7 +367,7 @@ function SubscriptionDialog({
                 id="sub-cycle"
                 name="cycle"
                 defaultValue={editing?.cycle ?? "monthly"}
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 {Object.entries(CYCLE_LABEL).map(([value, label]) => (
                   <NativeSelectOption key={value} value={value}>
@@ -378,14 +377,14 @@ function SubscriptionDialog({
               </NativeSelect>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="sub-scope">Ámbito</Label>
               <NativeSelect
                 id="sub-scope"
                 name="scope"
                 defaultValue={editing?.scope ?? "work"}
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 <NativeSelectOption value="work">Trabajo</NativeSelectOption>
                 <NativeSelectOption value="personal">
@@ -399,7 +398,7 @@ function SubscriptionDialog({
                 id="sub-category"
                 name="category"
                 defaultValue={editing?.categoryId ?? ""}
-                className="w-full [&_select]:h-9"
+                className="w-full"
               >
                 <NativeSelectOption value="">Sin categoría</NativeSelectOption>
                 {categories
@@ -412,7 +411,7 @@ function SubscriptionDialog({
               </NativeSelect>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="sub-next">Próximo cobro</Label>
               <Input

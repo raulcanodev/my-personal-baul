@@ -20,6 +20,7 @@ import {
 } from "@/server/finance/categories";
 import {
   addConnection,
+  ensureScaKey,
   listConnections,
   removeConnection,
   syncConnectionById,
@@ -160,6 +161,11 @@ export const financeRouter = createTRPCRouter({
     remove: financeProcedure
       .input(z.object({ id: z.string() }))
       .mutation(({ ctx, input }) => removeConnection(ctx.finance, input.id)),
+    ensureScaKey: financeProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(({ ctx, input }) =>
+        ensureScaKey(ctx.finance, input.id, getEncryptionSecret()),
+      ),
   }),
 
   transactions: createTRPCRouter({
