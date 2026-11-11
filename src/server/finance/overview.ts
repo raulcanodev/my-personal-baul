@@ -2,6 +2,7 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 
 import { categories, moneyAccounts, transactions } from "@/server/db/schema";
 import { listAccounts } from "./accounts";
+import { incomeSql, spentSql } from "./analytics";
 import type { FinanceContext } from "./context";
 import { getRates, toBase } from "./money";
 import { listSubscriptions } from "./subscriptions";
@@ -27,8 +28,8 @@ export async function getOverview(ctx: FinanceContext, month: string) {
           color: categories.color,
           kind: categories.kind,
           currency: transactions.currency,
-          inCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} > 0 then ${transactions.amountCents} end), 0)`,
-          outCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} < 0 then -${transactions.amountCents} end), 0)`,
+          inCents: incomeSql,
+          outCents: spentSql,
         })
         .from(transactions)
         .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -45,8 +46,8 @@ export async function getOverview(ctx: FinanceContext, month: string) {
           month: sql<string>`strftime('%Y-%m', ${transactions.date} / 1000, 'unixepoch')`,
           kind: categories.kind,
           currency: transactions.currency,
-          inCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} > 0 then ${transactions.amountCents} end), 0)`,
-          outCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} < 0 then -${transactions.amountCents} end), 0)`,
+          inCents: incomeSql,
+          outCents: spentSql,
         })
         .from(transactions)
         .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -87,7 +88,7 @@ export async function getOverview(ctx: FinanceContext, month: string) {
     const outBase = toBase(row.outCents, row.currency, rates);
     incomeCents += inBase;
     expenseCents += outBase;
-    if (outBase > 0) {
+    if (outBase !== 0) {
       const key = row.categoryId ?? "none";
       const entry = categoryMap.get(key) ?? {
         id: row.categoryId,
@@ -123,11 +124,13 @@ export async function getOverview(ctx: FinanceContext, month: string) {
     month,
     incomeCents,
     expenseCents,
-    spendingByCategory: [...categoryMap.values()].sort(
-      (a, b) => b.cents - a.cents,
-    ),
+    // A category whose refunds outweigh its purchases is not spending
+    spendingByCategory: [...categoryMap.values()]
+      .filter((c) => c.cents > 0)
+      .sort((a, b) => b.cents - a.cents),
     monthly,
     totalBalanceCents: accounts.totalCents,
+    balanceByScope: accounts.byScope,
     accountsCount: accounts.items.length,
     subscriptions: subs.summary,
     uncategorizedCount: uncategorized[0]?.count ?? 0,

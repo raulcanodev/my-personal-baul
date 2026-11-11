@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` ADD `is_one_off` integer DEFAULT false NOT NULL;

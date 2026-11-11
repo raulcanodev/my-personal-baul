@@ -52,6 +52,12 @@ export function AuthForm({
         );
         return;
       }
+      // Signing in for an MCP client (Claude…): continue its OAuth flow instead of the app
+      const next = result.data as { redirect?: boolean; url?: string } | null;
+      if (next?.redirect && next.url) {
+        window.location.href = next.url;
+        return;
+      }
       router.replace("/dashboard");
       router.refresh();
     } catch {

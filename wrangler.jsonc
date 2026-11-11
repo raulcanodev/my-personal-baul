@@ -22,5 +22,7 @@
   "workers_dev": true,
   // Every day at 05:00 UTC: balances and new transactions from Wise/Mercury
   "triggers": { "crons": ["0 5 * * *"] },
+  // Canonical origin: OAuth issuer and the MCP resource (https://baul.raulcano.dev/api/mcp)
+  "vars": { "BETTER_AUTH_URL": "https://baul.raulcano.dev" },
   "observability": { "enabled": true },
 }

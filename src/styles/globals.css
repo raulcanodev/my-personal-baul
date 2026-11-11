@@ -60,6 +60,9 @@
   --muted: oklch(93.8% 0.006 95);
   --muted-foreground: oklch(56% 0.008 80);
   --border: oklch(89.5% 0.007 90);
+  /* Form fields on grey cards */
+  --field: oklch(1 0 0);
+  --field-border: oklch(74% 0.012 85);
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
@@ -95,6 +98,8 @@
   --muted: oklch(27.5% 0.006 70);
   --muted-foreground: oklch(68% 0.008 80);
   --border: oklch(31% 0.006 70);
+  --field: oklch(15.5% 0.005 70);
+  --field-border: oklch(42% 0.008 75);
   --chart-3: oklch(55% 0.008 80);
   --chart-4: oklch(42% 0.007 80);
 }
@@ -127,12 +132,25 @@
     outline-offset: 3px;
   }
 }
-[data-slot="input"],
-[data-slot="textarea"],
-[data-slot="native-select"] {
-  background: var(--muted);
-  border-color: transparent;
-  box-shadow: none;
+/* Fields are filled, not outlined (Brightlight). In the base layer so utilities can still
+   override them per use. */
+@layer base {
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="native-select"] {
+    background: var(--muted);
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+/* On a grey card (settings, forms on bg-muted) a grey field disappears: there they are white
+   with a visible border. `data-plain` opts out (inline editable text). */
+.bg-muted
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="native-select"]):not(
+    [data-plain]
+  ) {
+  background: var(--field);
+  border-color: var(--field-border);
 }
 /* Same height for every field inside a dialog, so rows of inputs and selects line up */
 [data-slot="dialog-content"] :is([data-slot="input"], [data-slot="native-select"]) {

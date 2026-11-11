@@ -29,6 +29,27 @@
       "when": 1794351293187,
       "tag": "0003_early_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794352316672,
+      "tag": "0004_abandoned_nemesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794360737996,
+      "tag": "0005_fat_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794385756763,
+      "tag": "0006_furry_the_renegades",
+      "breakpoints": true
     }
   ]
 }

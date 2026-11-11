@@ -11,8 +11,9 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { api, type RouterOutputs } from "@/trpc/react";
-import { KIND_LABEL, SCOPE_LABEL, relativeTime } from "../format";
+import { KIND_LABEL, SCOPE_LABEL } from "../format";
 import { PageHeader } from "../page-header";
+import { SettingsSection } from "./settings-section";
 
 type Category = RouterOutputs["finance"]["categories"]["list"][number];
 
@@ -29,107 +30,64 @@ const COLORS = [
   "#a8a29e",
 ];
 
-export function SettingsView() {
+export function CategoriesSettings() {
   const categories = api.finance.categories.list.useQuery();
-  const connections = api.finance.connections.list.useQuery();
   const utils = api.useUtils();
   const refresh = () => utils.finance.invalidate();
   const create = api.finance.categories.create.useMutation({
     onSuccess: refresh,
     onError: (e) => toast.error(e.message),
   });
-  const removeConnection = api.finance.connections.remove.useMutation({
-    onSuccess: async () => {
-      toast.success("Conexión eliminada. Sus cuentas quedan como manuales.");
-      await refresh();
-    },
-  });
   const [name, setName] = useState("");
 
   return (
     <>
-      <PageHeader title="Ajustes" />
-
-      <section className="mt-10 max-w-3xl">
-        <h2 className="text-lg font-medium tracking-tight">Categorías</h2>
-        <div className="bg-muted mt-4 overflow-hidden rounded-xl">
-          <ul className="divide-background divide-y">
-            {(categories.data ?? []).map((c) => (
-              <CategoryRow key={c.id} category={c} onChange={refresh} />
-            ))}
-          </ul>
-          <form
-            className="border-background flex gap-2 border-t p-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!name.trim()) return;
-              create.mutate({
-                name: name.trim(),
-                kind: "expense",
-                scope: "personal",
-                color: COLORS[(categories.data?.length ?? 0) % COLORS.length],
-              });
-              setName("");
-            }}
-          >
-            <Input
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              placeholder="Nueva categoría"
-              className="bg-background h-9"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="h-9"
-              disabled={create.isPending}
+      <PageHeader title="Categorías" />
+      <div className="mt-9">
+        <SettingsSection
+          title="Tus categorías"
+          description="El ámbito separa lo personal del trabajo. Las de tipo transferencia no cuentan como gasto ni ingreso."
+          bare
+        >
+          <div className="bg-muted overflow-hidden rounded-xl">
+            <ul className="divide-background divide-y">
+              {(categories.data ?? []).map((c) => (
+                <CategoryRow key={c.id} category={c} onChange={refresh} />
+              ))}
+            </ul>
+            <form
+              className="border-background flex gap-2 border-t p-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!name.trim()) return;
+                create.mutate({
+                  name: name.trim(),
+                  kind: "expense",
+                  scope: "personal",
+                  color: COLORS[(categories.data?.length ?? 0) % COLORS.length],
+                });
+                setName("");
+              }}
             >
-              <Plus className="size-4" />
-              Añadir
-            </Button>
-          </form>
-        </div>
-      </section>
-
-      <section className="mt-10 max-w-3xl">
-        <h2 className="text-lg font-medium tracking-tight">
-          Bancos conectados
-        </h2>
-        <div className="bg-muted mt-4 overflow-hidden rounded-xl">
-          {connections.data?.length === 0 && (
-            <p className="text-muted-foreground py-10 text-center text-sm">
-              Ninguno. Conéctalos desde Cuentas.
-            </p>
-          )}
-          <ul className="divide-background divide-y">
-            {(connections.data ?? []).map((c) => (
-              <li key={c.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="flex-1">
-                  <p className="text-sm">{c.name}</p>
-                  <p className="text-muted-foreground text-xs capitalize">
-                    {c.provider} · sincronizado {relativeTime(c.lastSyncedAt)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `¿Desconectar ${c.name}? Se borra la API key; cuentas y movimientos se quedan.`,
-                      )
-                    ) {
-                      removeConnection.mutate({ id: c.id });
-                    }
-                  }}
-                >
-                  Desconectar
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                placeholder="Nueva categoría"
+                className="h-9"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                className="h-9"
+                disabled={create.isPending}
+              >
+                <Plus className="size-4" />
+                Añadir
+              </Button>
+            </form>
+          </div>
+        </SettingsSection>
+      </div>
     </>
   );
 }
@@ -166,6 +124,7 @@ function CategoryRow({
         />
       </label>
       <Input
+        data-plain
         defaultValue={c.name}
         className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 shadow-none"
         onBlur={(e) => {

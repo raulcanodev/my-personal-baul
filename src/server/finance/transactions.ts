@@ -103,6 +103,7 @@ export async function listTransactions(
         currency: transactions.currency,
         status: transactions.status,
         note: transactions.note,
+        isOneOff: transactions.isOneOff,
         reviewedAt: transactions.reviewedAt,
         categoryId: transactions.categoryId,
         subscriptionId: transactions.subscriptionId,
@@ -149,16 +150,18 @@ export async function listTransactions(
 }
 
 /**
- * Sets the category (and optionally the subscription) of a transaction. With `rememberMerchant`
- * it becomes a merchant rule: future syncs and the pending ones of that merchant get it too.
+ * Sets the category, subscription, note or one-off flag of a transaction; whatever is left
+ * undefined is kept (null clears). With `rememberMerchant` and a category it becomes a merchant
+ * rule: future syncs and the pending ones of that merchant get it too.
  */
 export async function categorizeTransaction(
   ctx: FinanceContext,
   input: {
     id: string;
-    categoryId: string | null;
+    categoryId?: string | null;
     subscriptionId?: string | null;
     note?: string | null;
+    isOneOff?: boolean;
     rememberMerchant?: boolean;
   },
 ) {
@@ -169,15 +172,25 @@ export async function categorizeTransaction(
     .where(and(eq(transactions.id, input.id), eq(transactions.userId, userId)));
   if (!tx) throw new Error("Movimiento no encontrado");
   const values = {
-    categoryId: input.categoryId,
-    subscriptionId: input.subscriptionId ?? tx.subscriptionId,
+    categoryId:
+      input.categoryId === undefined ? tx.categoryId : input.categoryId,
+    subscriptionId:
+      input.subscriptionId === undefined
+        ? tx.subscriptionId
+        : input.subscriptionId,
   };
   await db
     .update(transactions)
-    .set({ ...values, note: input.note ?? tx.note, reviewedAt: new Date() })
+    .set({
+      ...values,
+      note: input.note === undefined ? tx.note : input.note,
+      isOneOff: input.isOneOff ?? tx.isOneOff,
+      reviewedAt: new Date(),
+    })
     .where(eq(transactions.id, tx.id));
 
-  if (input.rememberMerchant && tx.merchant) {
+  // Only a category decision is worth remembering for the merchant
+  if (input.rememberMerchant && input.categoryId !== undefined && tx.merchant) {
     await db
       .insert(merchantRules)
       .values({ id: newId("rul"), userId, merchant: tx.merchant, ...values })
@@ -242,4 +255,90 @@ export async function deleteManualTransaction(
         eq(transactions.externalId, id),
       ),
     );
+}
+
+/**
+ * Categorizes every transaction of a merchant at once and remembers it for future syncs.
+ * Reviewed transactions keep their category unless `includeReviewed`.
+ */
+export async function categorizeMerchant(
+  { db, userId }: FinanceContext,
+  input: {
+    merchant: string;
+    categoryId: string | null;
+    subscriptionId?: string | null;
+    includeReviewed?: boolean;
+    note?: string | null;
+  },
+) {
+  // Accept the merchant key or the raw bank name ("Amazon EU S.a.r.l." → "amazon eu")
+  const exact = input.merchant.trim().toLowerCase();
+  const [{ found } = { found: 0 }] = await db
+    .select({ found: sql<number>`count(*)` })
+    .from(transactions)
+    .where(
+      and(eq(transactions.userId, userId), eq(transactions.merchant, exact)),
+    );
+  const merchant = found
+    ? exact
+    : (normalizeMerchant(input.merchant, input.merchant) ?? exact);
+  const values = {
+    categoryId: input.categoryId,
+    subscriptionId: input.subscriptionId ?? null,
+  };
+  await db
+    .insert(merchantRules)
+    .values({ id: newId("rul"), userId, merchant, ...values })
+    .onConflictDoUpdate({
+      target: [merchantRules.userId, merchantRules.merchant],
+      set: values,
+    });
+  const where = and(
+    eq(transactions.userId, userId),
+    eq(transactions.merchant, merchant),
+    // Anything still without a category, plus what was not reviewed by hand
+    input.includeReviewed
+      ? undefined
+      : or(isNull(transactions.reviewedAt), isNull(transactions.categoryId)),
+  );
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(transactions)
+    .where(where);
+  await db
+    .update(transactions)
+    .set({
+      categoryId: input.categoryId,
+      ...(input.subscriptionId !== undefined
+        ? { subscriptionId: input.subscriptionId }
+        : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+      reviewedAt: new Date(),
+    })
+    .where(where);
+  return { merchant, updated: n };
+}
+
+/** Merchants still without category, by amount: what to classify first */
+export async function uncategorizedMerchants(
+  { db, userId }: FinanceContext,
+  limit = 30,
+) {
+  const rows = await db
+    .select({
+      merchant: transactions.merchant,
+      count: sql<number>`count(*)`,
+      outCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} < 0 then -${transactions.amountCents} end), 0)`,
+      inCents: sql<number>`coalesce(sum(case when ${transactions.amountCents} > 0 then ${transactions.amountCents} end), 0)`,
+      currency: transactions.currency,
+      example: sql<string>`max(${transactions.description})`,
+    })
+    .from(transactions)
+    .where(
+      and(eq(transactions.userId, userId), isNull(transactions.categoryId)),
+    )
+    .groupBy(transactions.merchant, transactions.currency)
+    .orderBy(sql`3 desc`)
+    .limit(limit);
+  return rows;
 }

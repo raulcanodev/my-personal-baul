@@ -48,3 +48,12 @@ Los componentes de registro shadcn conservan las reglas normales de ESLint; las 
 Producción: `https://baul.raulcano.dev` (custom domain del Worker; el DNS de raulcano.dev está en Cloudflare desde el 10/11/2026, con el portfolio y `games` en Vercel como CNAME en DNS only). `https://baul.rawraul.workers.dev` sigue activo como respaldo.
 
 Registro: el primer usuario se registra libremente; después solo con `SIGNUP_CODE` (`pnpm wrangler secret put SIGNUP_CODE`), y sin código queda cerrado.
+
+## MCP (agentes)
+
+`https://baul.raulcano.dev/api/mcp`: MCP remoto y sin estado, con OAuth (Better Auth `@better-auth/mcp` + `jwt` + `cimd`).
+
+- Las tools salen del catálogo `src/server/tools/` (finanzas en `finance.ts`), que llama a los mismos servicios que la app. Cada tool declara su riesgo: `read`, `write` (pide el scope `baul:write`) o `destructive`.
+- Para añadir una tool: se escribe en el catálogo, se despliega, y la siguiente sesión del cliente ya la tiene. No hay que reconectar ni volver a iniciar sesión, porque los tokens se renuevan solos.
+- Claude Code: `claude mcp add --transport http baul https://baul.raulcano.dev/api/mcp`, después `/mcp` → Authenticate. Abre `/login` y `/oauth/consent`.
+- claude.ai: Ajustes → Conectores → Añadir conector personalizado → la misma URL.

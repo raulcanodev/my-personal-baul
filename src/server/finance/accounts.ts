@@ -59,9 +59,15 @@ export async function listAccounts({ db, userId }: FinanceContext) {
     ...connection,
     baseBalanceCents: toBase(account.balanceCents, account.currency, rates),
   }));
+  const sum = (scope?: Scope) =>
+    items
+      .filter((a) => !scope || a.scope === scope)
+      .reduce((n, a) => n + a.baseBalanceCents, 0);
   return {
     items,
-    totalCents: items.reduce((n, a) => n + a.baseBalanceCents, 0),
+    totalCents: sum(),
+    // Personal money vs company (LLC) money: what is really available to spend
+    byScope: { personal: sum("personal"), work: sum("work") },
   };
 }
 

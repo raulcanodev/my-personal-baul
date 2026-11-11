@@ -55,6 +55,13 @@ export const CYCLE_LABEL = {
   quarterly: "Trimestral",
   yearly: "Anual",
 } as const;
+export const FLOW_CYCLE_LABEL = { once: "Una vez", ...CYCLE_LABEL } as const;
+export const DEBT_KIND_LABEL = {
+  loan: "Préstamo",
+  financing: "Financiación",
+  credit_card: "Tarjeta de crédito",
+  other: "Otra deuda",
+} as const;
 export const KIND_LABEL = {
   expense: "Gasto",
   income: "Ingreso",

@@ -353,6 +353,7 @@ function TransactionRow({
             t.description !== t.counterparty &&
             ` · ${t.description}`}
           {t.status === "pending" && " · pendiente"}
+          {t.isOneOff && " · puntual"}
         </p>
       </div>
       <Popover open={open} onOpenChange={setOpen}>
@@ -394,6 +395,23 @@ function TransactionRow({
               </button>
             ))}
           </div>
+          {t.amountCents < 0 && (
+            <label className="mt-1 flex items-center justify-between gap-2 border-t px-2 pt-2 text-xs">
+              <span className="text-muted-foreground">
+                Gasto puntual{" "}
+                <span className="text-muted-foreground/70">
+                  (fuera de la media de la previsión)
+                </span>
+              </span>
+              <Switch
+                checked={t.isOneOff}
+                disabled={categorize.isPending}
+                onCheckedChange={(isOneOff) =>
+                  categorize.mutate({ id: t.id, isOneOff })
+                }
+              />
+            </label>
+          )}
           {t.merchant && (
             <label className="mt-1 flex items-center justify-between gap-2 border-t px-2 pt-2 text-xs">
               <span className="text-muted-foreground">
@@ -517,11 +535,7 @@ function CreateTransactionDialog({
           <div className="grid grid-cols-2 gap-3 *:min-w-0">
             <div className="space-y-2">
               <Label htmlFor="tx-account">Cuenta</Label>
-              <NativeSelect
-                id="tx-account"
-                name="account"
-                className="w-full"
-              >
+              <NativeSelect id="tx-account" name="account" className="w-full">
                 {accounts.map((a) => (
                   <NativeSelectOption key={a.id} value={a.id}>
                     {a.name}
@@ -531,11 +545,7 @@ function CreateTransactionDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="tx-category">Categoría</Label>
-              <NativeSelect
-                id="tx-category"
-                name="category"
-                className="w-full"
-              >
+              <NativeSelect id="tx-category" name="category" className="w-full">
                 <NativeSelectOption value="">Sin categoría</NativeSelectOption>
                 {categories.map((c) => (
                   <NativeSelectOption key={c.id} value={c.id}>

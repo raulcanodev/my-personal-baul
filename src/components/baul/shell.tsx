@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { ArrowLeft, LogOut, Settings2 } from "lucide-react";
 import {
-  ArrowLeftRight,
-  LayoutGrid,
-  LogOut,
-  Repeat,
-  Settings2,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+  mainNavigation,
+  moreNavigation,
+  mobileNavigation,
+  navigation,
+  isNavigationActive as isActive,
+  isMorePath,
+} from "./navigation";
 
 import {
   DropdownMenu,
@@ -24,16 +24,11 @@ import {
 import { authClient } from "@/server/better-auth/client";
 import { Brand } from "./brand";
 import { HeaderControls } from "./header-controls";
-
-const navigation: { name: string; href: string; icon: LucideIcon }[] = [
-  { name: "Resumen", href: "/dashboard", icon: LayoutGrid },
-  { name: "Movimientos", href: "/dashboard/movimientos", icon: ArrowLeftRight },
-  { name: "Suscripciones", href: "/dashboard/suscripciones", icon: Repeat },
-  { name: "Cuentas", href: "/dashboard/cuentas", icon: Wallet },
-];
-
-const isActive = (pathname: string, href: string) =>
-  href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+import {
+  SETTINGS_SECTIONS,
+  activeSettingsItem,
+  isSettingsPath,
+} from "./settings/settings-nav";
 
 export function AppShell({
   userName,
@@ -44,10 +39,10 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const current =
-    [...navigation, { name: "Ajustes", href: "/dashboard/ajustes" }].find((n) =>
-      isActive(pathname, n.href),
-    )?.name ?? "Resumen";
+  const inSettings = isSettingsPath(pathname);
+  const current = inSettings
+    ? (activeSettingsItem(pathname)?.name ?? "Ajustes")
+    : (navigation.find((n) => isActive(pathname, n.href))?.name ?? "Resumen");
   const initials = userName.slice(0, 2).toUpperCase();
   async function signOut() {
     await authClient.signOut();
@@ -56,38 +51,90 @@ export function AppShell({
 
   return (
     <div className="min-h-svh lg:pl-60">
-      <aside className="bg-background fixed inset-y-0 left-0 z-40 hidden w-60 flex-col px-5 py-8 lg:flex">
-        <div className="px-3">
-          <Brand />
-        </div>
-        <p className="text-muted-foreground mt-14 px-3 text-xs">Mi espacio</p>
-        <nav aria-label="Navegación principal" className="mt-4 space-y-1">
-          {navigation.map(({ name, href, icon: Icon }) => {
-            const active = isActive(pathname, href);
-            return (
+      <aside className="bg-background fixed inset-y-0 left-0 z-40 hidden w-60 flex-col overflow-y-auto px-5 py-8 lg:flex">
+        {inSettings ? (
+          // Settings replace the main menu (like papra): back arrow, title, grouped sections
+          <>
+            <div className="flex items-center gap-2">
               <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors ${active ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                href="/dashboard"
+                aria-label="Volver"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-9 items-center justify-center rounded-lg transition-colors"
               >
-                <Icon className="size-4" strokeWidth={1.5} />
-                {name}
-                {active && (
-                  <span className="bg-foreground ml-auto size-1 rounded-full" />
-                )}
+                <ArrowLeft className="size-4" />
               </Link>
-            );
-          })}
-        </nav>
-        <div className="mt-auto space-y-5 pt-16">
-          <Link
-            href="/dashboard/ajustes"
-            className={`flex items-center gap-3 px-3 text-sm ${isActive(pathname, "/dashboard/ajustes") ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            <Settings2 className="size-4" />
-            Ajustes
-          </Link>
+              <span className="text-lg font-medium tracking-tight">
+                Ajustes
+              </span>
+            </div>
+            <nav aria-label="Ajustes" className="mt-10 space-y-7">
+              {SETTINGS_SECTIONS.map((section, i) => (
+                <div key={section.label ?? i}>
+                  {section.label && (
+                    <p className="text-muted-foreground mb-2 px-3 text-xs">
+                      {section.label}
+                    </p>
+                  )}
+                  <div className="space-y-1">
+                    {section.items.map(({ name, href, icon: Icon }) => {
+                      const active =
+                        activeSettingsItem(pathname)?.href === href;
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          aria-current={active ? "page" : undefined}
+                          className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors ${active ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                        >
+                          <Icon className="size-4" strokeWidth={1.5} />
+                          {name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </>
+        ) : (
+          <>
+            <div className="px-3">
+              <Brand />
+            </div>
+            <nav aria-label="Navegación principal" className="mt-8 space-y-6">
+              {[
+                { label: "Mi espacio", items: mainNavigation },
+                ...moreNavigation,
+              ].map((group) => (
+                <div key={group.label}>
+                  <p className="text-muted-foreground mb-2 px-3 text-xs">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map(({ name, href, icon: Icon }) => {
+                      const active =
+                        href === "/dashboard/mas"
+                          ? isMorePath(pathname)
+                          : isActive(pathname, href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          aria-current={active ? "page" : undefined}
+                          className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${active ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                        >
+                          <Icon className="size-4" strokeWidth={1.5} />
+                          {name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </>
+        )}
+        <div className="mt-auto space-y-5 pt-8">
           <div className="flex items-center gap-3 px-3 pt-3">
             <span className="bg-muted flex size-8 items-center justify-center rounded-lg text-xs">
               {initials}
@@ -108,7 +155,9 @@ export function AppShell({
             <Brand />
           </div>
           <div className="hidden items-center gap-3 lg:flex">
-            <span className="text-muted-foreground">Mi espacio</span>
+            <span className="text-muted-foreground">
+              {inSettings ? "Ajustes" : "Mi espacio"}
+            </span>
             <span className="text-muted-foreground/50">/</span>
             <span>{current}</span>
           </div>
@@ -150,8 +199,11 @@ export function AppShell({
         className="bg-background/90 border-border fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
       >
         <div className="mx-auto grid max-w-md grid-cols-4">
-          {navigation.map(({ name, href, icon: Icon }) => {
-            const active = isActive(pathname, href);
+          {mobileNavigation.map(({ name, href, icon: Icon }) => {
+            const active =
+              href === "/dashboard/mas"
+                ? isMorePath(pathname)
+                : isActive(pathname, href);
             return (
               <Link
                 key={href}

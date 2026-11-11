@@ -223,6 +223,10 @@ export const transactions = sqliteTable(
     }),
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
     note: text("note"),
+    /** A one-off expense (lawyer, a repair): kept out of the monthly averages that forecasts use */
+    isOneOff: integer("is_one_off", { mode: "boolean" })
+      .notNull()
+      .default(false),
     raw: text("raw", { mode: "json" }),
     ...timestamps,
   },
@@ -232,6 +236,120 @@ export const transactions = sqliteTable(
     index("transactions_user_merchant").on(t.userId, t.merchant),
   ],
 );
+
+// ── Planning: goals, budgets, debts and expected cash flows ─────────────────
+
+export const FLOW_CYCLES = [
+  "once",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+] as const;
+export type FlowCycle = (typeof FLOW_CYCLES)[number];
+
+/** A savings target. Progress comes from linked accounts (e.g. a Wise jar) or a manual amount. */
+export const savingsGoals = sqliteTable("savings_goals", {
+  id: text("id").primaryKey(),
+  userId: userRef(),
+  name: text("name").notNull(),
+  targetCents: integer("target_cents").notNull(),
+  /** Manual progress, used when no account is linked */
+  savedCents: integer("saved_cents").notNull().default(0),
+  /** JSON list of money_accounts ids whose balance counts as progress */
+  accountIds: text("account_ids", { mode: "json" }).$type<string[]>(),
+  /** YYYY-MM-DD */
+  targetOn: text("target_on"),
+  scope: text("scope", { enum: SCOPES }).notNull().default("personal"),
+  notes: text("notes"),
+  isArchived: integer("is_archived", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  ...timestamps,
+});
+
+/** Monthly spending limit for one category, in EUR */
+export const budgets = sqliteTable(
+  "budgets",
+  {
+    id: text("id").primaryKey(),
+    userId: userRef(),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    monthlyCents: integer("monthly_cents").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("budgets_user_category").on(t.userId, t.categoryId)],
+);
+
+export const DEBT_KINDS = [
+  "loan",
+  "credit_card",
+  "financing",
+  "other",
+] as const;
+export type DebtKind = (typeof DEBT_KINDS)[number];
+
+/**
+ * Financial obligations, kept apart from subscriptions: a loan installment is a commitment with
+ * capital left and interest, Netflix is a cancellable recurring expense.
+ * - loan / financing: amortizes with TIN and a fixed monthly payment
+ * - credit_card: revolving balance against a limit; the payment can be a minimum
+ */
+export const debts = sqliteTable("debts", {
+  id: text("id").primaryKey(),
+  userId: userRef(),
+  kind: text("kind", { enum: DEBT_KINDS }).notNull().default("loan"),
+  name: text("name").notNull(),
+  lender: text("lender"),
+  currency: text("currency").notNull().default("EUR"),
+  principalCents: integer("principal_cents"),
+  balanceCents: integer("balance_cents").notNull(),
+  /** TIN: nominal annual rate in basis points (5.25 % = 525), what amortization uses */
+  annualRateBps: integer("annual_rate_bps").notNull().default(0),
+  /** TAE: effective annual rate with fees, in basis points, to compare offers */
+  aprBps: integer("apr_bps"),
+  monthlyPaymentCents: integer("monthly_payment_cents").notNull(),
+  /** Credit cards: credit limit */
+  creditLimitCents: integer("credit_limit_cents"),
+  /** Day of the month the installment is charged */
+  paymentDay: integer("payment_day"),
+  /** YYYY-MM-DD */
+  startedOn: text("started_on"),
+  /** YYYY-MM-DD */
+  endsOn: text("ends_on"),
+  scope: text("scope", { enum: SCOPES }).notNull().default("personal"),
+  /** Merchant key of the bank charges (e.g. "quotanda"), to link the installments */
+  merchant: text("merchant"),
+  notes: text("notes"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  ...timestamps,
+});
+
+/**
+ * Money expected to come in (positive) or go out (negative) that the bank cannot know yet:
+ * an invoice to collect, rent, a salary, taxes. Feeds the cash-flow forecast.
+ */
+export const plannedFlows = sqliteTable("planned_flows", {
+  id: text("id").primaryKey(),
+  userId: userRef(),
+  name: text("name").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("EUR"),
+  cycle: text("cycle", { enum: FLOW_CYCLES }).notNull().default("once"),
+  /** YYYY-MM-DD of the next (or only) occurrence */
+  nextOn: text("next_on").notNull(),
+  /** YYYY-MM-DD, last possible occurrence for recurring flows */
+  endsOn: text("ends_on"),
+  scope: text("scope", { enum: SCOPES }).notNull().default("personal"),
+  categoryId: text("category_id").references(() => categories.id, {
+    onDelete: "set null",
+  }),
+  notes: text("notes"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  ...timestamps,
+});
 
 /** The only rule kind: "this merchant is this category (and this subscription)". */
 export const merchantRules = sqliteTable(
@@ -250,3 +368,160 @@ export const merchantRules = sqliteTable(
   },
   (t) => [uniqueIndex("merchant_rules_user_merchant").on(t.userId, t.merchant)],
 );
+
+// ── OAuth for the MCP endpoint (Better Auth jwt + @better-auth/mcp) ──────────
+// Shapes follow the plugins' own schema; lists and JSON are stored as text (the Drizzle adapter
+// serializes them on SQLite).
+const ts = (name: string) => integer(name, { mode: "timestamp_ms" });
+const bool = (name: string) => integer(name, { mode: "boolean" });
+
+export const jwks = sqliteTable("jwks", {
+  id: text("id").primaryKey(),
+  publicKey: text("public_key").notNull(),
+  privateKey: text("private_key").notNull(),
+  createdAt: ts("created_at").notNull(),
+  expiresAt: ts("expires_at"),
+  alg: text("alg"),
+  crv: text("crv"),
+});
+
+export const oauthClient = sqliteTable("oauth_client", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().unique(),
+  clientSecret: text("client_secret"),
+  clientDiscoveryId: text("client_discovery_id"),
+  disabled: bool("disabled").default(false),
+  skipConsent: bool("skip_consent"),
+  enableEndSession: bool("enable_end_session"),
+  subjectType: text("subject_type"),
+  scopes: text("scopes"),
+  clientCredentialsScopes: text("client_credentials_scopes"),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+  name: text("name"),
+  uri: text("uri"),
+  icon: text("icon"),
+  contacts: text("contacts"),
+  tos: text("tos"),
+  policy: text("policy"),
+  softwareId: text("software_id"),
+  softwareVersion: text("software_version"),
+  softwareStatement: text("software_statement"),
+  redirectUris: text("redirect_uris").notNull(),
+  postLogoutRedirectUris: text("post_logout_redirect_uris"),
+  backchannelLogoutUri: text("backchannel_logout_uri"),
+  backchannelLogoutSessionRequired: bool("backchannel_logout_session_required"),
+  tokenEndpointAuthMethod: text("token_endpoint_auth_method"),
+  applicationType: text("application_type"),
+  jwks: text("jwks"),
+  jwksUri: text("jwks_uri"),
+  grantTypes: text("grant_types"),
+  responseTypes: text("response_types"),
+  requirePKCE: bool("require_pkce"),
+  dpopBoundAccessTokens: bool("dpop_bound_access_tokens").default(false),
+  referenceId: text("reference_id"),
+  metadata: text("metadata"),
+});
+
+export const oauthResource = sqliteTable("oauth_resource", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull().unique(),
+  name: text("name").notNull(),
+  accessTokenTtl: integer("access_token_ttl"),
+  refreshTokenTtl: integer("refresh_token_ttl"),
+  signingAlgorithm: text("signing_algorithm"),
+  signingKeyId: text("signing_key_id"),
+  allowedScopes: text("allowed_scopes"),
+  customClaims: text("custom_claims"),
+  dpopBoundAccessTokensRequired: bool(
+    "dpop_bound_access_tokens_required",
+  ).default(false),
+  disabled: bool("disabled").default(false),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+  policyVersion: integer("policy_version").default(1),
+  metadata: text("metadata"),
+});
+
+export const oauthClientResource = sqliteTable("oauth_client_resource", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  resourceId: text("resource_id")
+    .notNull()
+    .references(() => oauthResource.identifier, { onDelete: "cascade" }),
+  metadata: text("metadata"),
+  createdAt: ts("created_at"),
+});
+
+export const oauthRefreshToken = sqliteTable("oauth_refresh_token", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  sessionId: text("session_id").references(() => session.id, {
+    onDelete: "set null",
+  }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"),
+  authorizationCodeId: text("authorization_code_id"),
+  resources: text("resources"),
+  requestedUserInfoClaims: text("requested_user_info_claims"),
+  expiresAt: ts("expires_at"),
+  createdAt: ts("created_at"),
+  revoked: ts("revoked"),
+  rotatedAt: ts("rotated_at"),
+  rotationReplayResponse: text("rotation_replay_response"),
+  rotationReplayExpiresAt: ts("rotation_replay_expires_at"),
+  authTime: ts("auth_time"),
+  confirmation: text("confirmation"),
+  scopes: text("scopes").notNull(),
+});
+
+export const oauthAccessToken = sqliteTable("oauth_access_token", {
+  id: text("id").primaryKey(),
+  token: text("token").unique(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  sessionId: text("session_id").references(() => session.id, {
+    onDelete: "set null",
+  }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"),
+  authorizationCodeId: text("authorization_code_id"),
+  resources: text("resources"),
+  requestedUserInfoClaims: text("requested_user_info_claims"),
+  refreshId: text("refresh_id").references(() => oauthRefreshToken.id, {
+    onDelete: "cascade",
+  }),
+  expiresAt: ts("expires_at"),
+  createdAt: ts("created_at"),
+  revoked: ts("revoked"),
+  confirmation: text("confirmation"),
+  scopes: text("scopes").notNull(),
+});
+
+export const oauthConsent = sqliteTable("oauth_consent", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  referenceId: text("reference_id"),
+  resources: text("resources"),
+  requestedUserInfoClaims: text("requested_user_info_claims"),
+  scopes: text("scopes").notNull(),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+});
+
+export const oauthClientAssertion = sqliteTable("oauth_client_assertion", {
+  id: text("id").primaryKey(),
+  expiresAt: ts("expires_at").notNull(),
+});

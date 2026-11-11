@@ -1,6 +1,6 @@
 // Bank connections and sync, following papra's syncBankTransactions/refreshAccountBalances, with
 // two changes: one API key discovers all its accounts, and merchant rules replace the rule engine.
-import { and, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 import type { Db } from "@/server/db";
 import {
@@ -310,9 +310,9 @@ export async function ensureScaKey(
 
 /**
  * Money moving between my own balances is neither income nor spending: currency conversions
- * ("Converted 270.01 USD to 239.91 EUR" shows up as −USD on one balance and +EUR on another) and
- * Wise jar moves ("Moved 400.00 EUR from Savings"). They get the transfer category, unless the
- * user already reviewed them.
+ * ("Converted 270.01 USD to 239.91 EUR", −USD on one balance and +EUR on another) and Wise jar
+ * moves ("Moved 500.00 EUR to Savings"). They get the transfer category, unless the user already
+ * reviewed them. No guessing from the text: the bank's own transaction type decides.
  */
 export async function classifyInternalTransfers(db: Db, userId: string) {
   let [transfer] = await db
@@ -344,11 +344,11 @@ export async function classifyInternalTransfers(db: Db, userId: string) {
         eq(transactions.userId, userId),
         isNull(transactions.categoryId),
         isNull(transactions.reviewedAt),
+        // The bank says it: Wise marks conversions and jar moves as CONVERSION, Mercury marks
+        // moves between my own accounts as internalTransfer
         or(
-          like(transactions.description, "Converted % to %"),
-          like(transactions.description, "Moved % from %"),
-          like(transactions.description, "Moved % to %"),
           sql`json_extract(${transactions.raw}, '$.details.type') = 'CONVERSION'`,
+          sql`json_extract(${transactions.raw}, '$.kind') = 'internalTransfer'`,
         ),
       ),
     );

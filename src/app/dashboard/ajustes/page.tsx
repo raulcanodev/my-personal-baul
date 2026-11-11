@@ -1,5 +1,5 @@
-import { SettingsView } from "@/components/baul/views/settings-view";
+import { ProfileSettings } from "@/components/baul/settings/profile";
 
-export default function SettingsPage() {
-  return <SettingsView />;
+export default function ProfilePage() {
+  return <ProfileSettings />;
 }

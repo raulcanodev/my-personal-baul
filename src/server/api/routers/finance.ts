@@ -5,6 +5,8 @@ import {
   BANK_PROVIDERS,
   BILLING_CYCLES,
   CATEGORY_KINDS,
+  DEBT_KINDS,
+  FLOW_CYCLES,
   SCOPES,
 } from "@/server/db/schema";
 import {
@@ -29,7 +31,23 @@ import {
   getEncryptionSecret,
   type FinanceContext,
 } from "@/server/finance/context";
+import { forecastCashflow } from "@/server/finance/forecast";
+import { normalizeMerchant } from "@/server/finance/merchant";
 import { getOverview } from "@/server/finance/overview";
+import {
+  deleteBudget,
+  deleteDebt,
+  deleteGoal,
+  deletePlannedFlow,
+  listBudgets,
+  listDebts,
+  listGoals,
+  listPlannedFlows,
+  saveBudget,
+  saveDebt,
+  saveGoal,
+  savePlannedFlow,
+} from "@/server/finance/planning";
 import {
   createSubscription,
   deleteSubscription,
@@ -74,6 +92,52 @@ const subscriptionInput = z.object({
     .nullish()
     .or(z.literal("").transform(() => null)),
   notes: z.string().max(1000).nullish(),
+});
+
+const debtInput = z.object({
+  kind: z.enum(DEBT_KINDS),
+  name: z.string().min(1).max(120),
+  lender: z.string().max(120).nullish(),
+  currency,
+  principalCents: z.number().int().min(0).nullish(),
+  balanceCents: z.number().int().min(0),
+  annualRateBps: z.number().int().min(0).max(10000),
+  aprBps: z.number().int().min(0).max(20000).nullish(),
+  monthlyPaymentCents: z.number().int().min(0),
+  creditLimitCents: z.number().int().min(0).nullish(),
+  paymentDay: z.number().int().min(1).max(31).nullish(),
+  endsOn: isoDay.nullish(),
+  merchant: z.string().max(120).nullish(),
+  scope,
+  notes: z.string().max(1000).nullish(),
+  isActive: z.boolean(),
+});
+
+const goalInput = z.object({
+  name: z.string().min(1).max(120),
+  targetCents: z.number().int().positive(),
+  savedCents: z.number().int().min(0).optional(),
+  accountIds: z.array(z.string()).nullish(),
+  targetOn: isoDay.nullish(),
+  scope,
+  notes: z.string().max(1000).nullish(),
+  isArchived: z.boolean().optional(),
+});
+
+const flowInput = z.object({
+  name: z.string().min(1).max(120),
+  amountCents: z
+    .number()
+    .int()
+    .refine((n) => n !== 0),
+  currency,
+  cycle: z.enum(FLOW_CYCLES),
+  nextOn: isoDay,
+  endsOn: isoDay.nullish(),
+  scope,
+  categoryId: z.string().nullish(),
+  notes: z.string().max(1000).nullish(),
+  isActive: z.boolean(),
 });
 
 export const financeRouter = createTRPCRouter({
@@ -191,9 +255,11 @@ export const financeRouter = createTRPCRouter({
       .input(
         z.object({
           id: z.string(),
-          categoryId: z.string().nullable(),
+          // Left out = unchanged, null = cleared
+          categoryId: z.string().nullable().optional(),
           subscriptionId: z.string().nullish(),
           note: z.string().max(500).nullish(),
+          isOneOff: z.boolean().optional(),
           rememberMerchant: z.boolean().optional(),
         }),
       )
@@ -232,5 +298,72 @@ export const financeRouter = createTRPCRouter({
     delete: financeProcedure
       .input(z.object({ id: z.string() }))
       .mutation(({ ctx, input }) => deleteSubscription(ctx.finance, input.id)),
+  }),
+  planning: createTRPCRouter({
+    forecast: financeProcedure
+      .input(z.object({ scope: scope.optional() }))
+      .query(({ ctx, input }) =>
+        forecastCashflow(ctx.finance, {
+          horizons: [30, 60, 90],
+          scope: input.scope,
+        }),
+      ),
+    debts: createTRPCRouter({
+      list: financeProcedure.query(({ ctx }) => listDebts(ctx.finance, true)),
+      save: financeProcedure
+        .input(debtInput.extend({ id: z.string().optional() }))
+        .mutation(({ ctx, input }) =>
+          saveDebt(ctx.finance, {
+            ...input,
+            // The key bank lines use, so installments are not counted twice in the forecast
+            merchant: input.merchant
+              ? normalizeMerchant(input.merchant, input.merchant)
+              : null,
+          }),
+        ),
+      delete: financeProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(({ ctx, input }) => deleteDebt(ctx.finance, input.id)),
+    }),
+    goals: createTRPCRouter({
+      list: financeProcedure.query(({ ctx }) => listGoals(ctx.finance, true)),
+      save: financeProcedure
+        .input(goalInput.extend({ id: z.string().optional() }))
+        .mutation(({ ctx, input }) => saveGoal(ctx.finance, input)),
+      delete: financeProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(({ ctx, input }) => deleteGoal(ctx.finance, input.id)),
+    }),
+    budgets: createTRPCRouter({
+      list: financeProcedure
+        .input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }))
+        .query(({ ctx, input }) => listBudgets(ctx.finance, input.month)),
+      save: financeProcedure
+        .input(
+          z.object({
+            categoryId: z.string(),
+            monthlyCents: z.number().int().positive(),
+          }),
+        )
+        .mutation(({ ctx, input }) =>
+          saveBudget(ctx.finance, input.categoryId, input.monthlyCents),
+        ),
+      delete: financeProcedure
+        .input(z.object({ categoryId: z.string() }))
+        .mutation(({ ctx, input }) =>
+          deleteBudget(ctx.finance, input.categoryId),
+        ),
+    }),
+    flows: createTRPCRouter({
+      list: financeProcedure.query(({ ctx }) =>
+        listPlannedFlows(ctx.finance, true),
+      ),
+      save: financeProcedure
+        .input(flowInput.extend({ id: z.string().optional() }))
+        .mutation(({ ctx, input }) => savePlannedFlow(ctx.finance, input)),
+      delete: financeProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(({ ctx, input }) => deletePlannedFlow(ctx.finance, input.id)),
+    }),
   }),
 });
