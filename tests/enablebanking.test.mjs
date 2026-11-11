@@ -44,6 +44,7 @@ test('paginates booked transactions without exposing credentials in URL', async 
     assert.equal(parsed.searchParams.get('transaction_status'),'BOOK');
     assert.equal(parsed.searchParams.get('date_from'),'2026-01-01');
     assert.ok(init.headers.Authorization.startsWith('Bearer '));
+    assert.equal(init.redirect,'manual');
     if(calls===1) return Response.json({transactions:[transaction],continuation_key:'a+/='});
     assert.equal(parsed.searchParams.get('continuation_key'),'a+/=');
     return Response.json({transactions:[{...transaction,entry_reference:'second'},{...transaction,status:'PDNG'}]});
@@ -74,5 +75,17 @@ test('uses booked balances without summing available and booked balances',async(
     const result=await createEnableBankingAdapter().fetchBalances({apiKey:JSON.stringify(session)});
     assert.deepEqual(result.balances.map(x=>x.balance),[100,100]);
     assert.equal(new Set(result.balances.map(x=>x.accountId)).size,2);
+  } finally { globalThis.fetch=original; }
+});
+
+
+test('rejects redirects without forwarding credentials to another host',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async(_url,init)=>{
+    assert.equal(init.redirect,'manual');
+    return new Response(null,{status:302,headers:{Location:'https://example.com'}});
+  };
+  try {
+    await assert.rejects(createEnableBankingAdapter().fetchBalances({apiKey:JSON.stringify(session)}),/error 302/);
   } finally { globalThis.fetch=original; }
 });

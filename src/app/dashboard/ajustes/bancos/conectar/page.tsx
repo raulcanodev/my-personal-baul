@@ -24,7 +24,11 @@ export default async function ConnectPage({
   if (credentials) {
     try {
       banks = await listEnableBanks(credentials, country);
-    } catch {
+    } catch (error) {
+      console.error(
+        "Enable Banking catalog:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       failed = true;
     }
   }

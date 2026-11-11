@@ -61,7 +61,8 @@ export async function enableRequest<T>(
     },
     signal: AbortSignal.timeout(45000),
     cache: "no-store",
-    redirect: "error",
+    // Workers support manual redirects; reject 3xx below without forwarding the JWT.
+    redirect: "manual",
   });
   if (!response.ok) {
     // Never persist response bodies: they may contain bank details or authorization codes.
