@@ -33,6 +33,13 @@ export function BanksSettings() {
           </Button>
         }
       />
+      <div className="mt-6">
+        <Button asChild variant="secondary">
+          <Link href="/dashboard/ajustes/bancos/conectar">
+            Conectar o renovar con Enable Banking
+          </Link>
+        </Button>
+      </div>
       <div className="mt-9">
         <SettingsSection
           title="Conexiones"

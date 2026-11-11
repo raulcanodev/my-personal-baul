@@ -49,6 +49,10 @@ export async function addConnection(
   input: { provider: BankProvider; name: string; apiKey: string },
   secret: string,
 ) {
+  if (input.provider === "enablebanking")
+    throw new Error(
+      "Conecta este banco mediante el proceso de autorización de Enable Banking",
+    );
   const adapter = getBankProviderAdapter(input.provider);
   const { isValid } = await adapter.validateApiKey({ apiKey: input.apiKey });
   if (!isValid) throw new Error("La API key no es válida para este banco");
@@ -296,6 +300,8 @@ export async function ensureScaKey(
     .from(bankConnections)
     .where(and(eq(bankConnections.id, id), eq(bankConnections.userId, userId)));
   if (!connection) throw new Error("Conexión no encontrada");
+  if (connection.provider !== "wise")
+    throw new Error("Esta conexión no utiliza claves SCA de Wise");
   if (connection.scaPublicKey) return { publicKey: connection.scaPublicKey };
   const sca = await generateScaKeyPair();
   await db

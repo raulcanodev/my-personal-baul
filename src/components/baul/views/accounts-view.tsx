@@ -307,6 +307,12 @@ function ConnectBankDialog({
               : "Mercury → Settings → API Tokens (solo lectura)."}
           </DialogDescription>
         </DialogHeader>
+        <a
+          className="text-sm underline"
+          href="/dashboard/ajustes/bancos/conectar"
+        >
+          Revolut y otros bancos · Enable Banking
+        </a>
         <form
           className="space-y-4"
           onSubmit={(e) => {

@@ -57,12 +57,12 @@ export default function TermsPage() {
           proceso de autorización del proveedor.
         </p>
         <p>
-          Enable Banking está pendiente de integración y activación. Su registro
-          no garantiza disponibilidad para todos los bancos o usuarios. El modo
-          restringido está sujeto a sus límites para cuentas propias y uso
-          permitido; el acceso de terceros requiere las condiciones y
-          habilitaciones correspondientes de Enable Banking. Estos términos no
-          sustituyen ni amplían sus permisos o acuerdos.
+          La conexión mediante Enable Banking requiere una autorización bancaria
+          vigente. Su registro no garantiza disponibilidad para todos los bancos
+          o usuarios. El modo restringido está sujeto a sus límites para cuentas
+          propias y uso permitido; el acceso de terceros requiere las
+          condiciones y habilitaciones correspondientes de Enable Banking. Estos
+          términos no sustituyen ni amplían sus permisos o acuerdos.
         </p>
         <p>
           La disponibilidad, el historial y la frecuencia de actualización

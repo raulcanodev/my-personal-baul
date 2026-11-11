@@ -92,11 +92,10 @@ export default function PrivacyPage() {
         </p>
         <p>
           Wise y Mercury intervienen cuando conectas una cuenta de esos
-          proveedores. La conexión con Enable Banking está en preparación:
-          cuando esté disponible y la autorices, Enable Banking Oy y la entidad
-          seleccionada intervendrán en el acceso a la información de cuenta. Se
-          aplicarán también los avisos y condiciones que se presenten en ese
-          proceso, incluida la{" "}
+          proveedores. Cuando autorices una conexión con Enable Banking, Enable
+          Banking Oy y la entidad seleccionada intervendrán en el acceso a la
+          información de cuenta. Se aplicarán también los avisos y condiciones
+          que se presenten en ese proceso, incluida la{" "}
           <a href="https://enablebanking.com/privacy">
             política de privacidad de Enable Banking
           </a>

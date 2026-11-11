@@ -79,7 +79,7 @@ export const verification = sqliteTable("verification", {
 // real table (no free-text classification nor JSON tag lists), one API key can expose several
 // accounts, and subscriptions link to transactions by id instead of a search query.
 
-export const BANK_PROVIDERS = ["wise", "mercury"] as const;
+export const BANK_PROVIDERS = ["wise", "mercury", "enablebanking"] as const;
 export type BankProvider = (typeof BANK_PROVIDERS)[number];
 export const CATEGORY_KINDS = ["expense", "income", "transfer"] as const;
 export const SCOPES = ["personal", "work"] as const;
