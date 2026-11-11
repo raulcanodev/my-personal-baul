@@ -1,59 +1,64 @@
 # Baúl
 
-Interfaz de una app personal en Next.js, React, Tailwind CSS y shadcn/ui. Sin landing: `/` redirige a `/login`.
+Finanzas personales y de trabajo en un solo sitio. Cuentas de Wise, Mercury y manuales, movimientos categorizados, suscripciones y herramientas para planificar tu dinero.
+
+[Abre Baúl](https://baul.raulcano.dev)
+
+## Interfaz
+
+Cada tarea tiene su página: Previsión, Deudas, Objetivos, Presupuestos y Flujos previstos. En móvil, la barra **Inicio · Movimientos · Cuentas · Más** da acceso a todas las secciones.
+
+Capturas con **datos ficticios**, sin información bancaria real:
+
+![Previsión de tesorería con datos de ejemplo](docs/screenshots/forecast-desktop.png)
+
+<img src="docs/screenshots/mobile-more.png" alt="Menú Más en móvil, agrupado por secciones" width="320" />
 
 ## Desarrollo
 
+Necesitas Node.js 22.12+ y pnpm 10.
+
 ```sh
 pnpm install
-cp .env.example .env            # BETTER_AUTH_SECRET (y el mismo en .dev.vars para `wrangler dev`)
-pnpm db:migrate:local           # crea las tablas en la D1 local (.wrangler/)
-pnpm user:create <usuario> <email>
+cp .env.example .env
+```
+
+Genera un secreto con `openssl rand -base64 32` y guárdalo como `BETTER_AUTH_SECRET` en `.env` y `.dev.vars` (el mismo valor en ambos).
+
+```sh
+pnpm db:migrate:local
 pnpm dev
 ```
 
-Puerto local de esta app: [localhost:43871](http://localhost:43871).
+Abre [localhost:43871](http://localhost:43871). El primer usuario puede registrarse; después, el registro requiere `SIGNUP_CODE`. Sin código, queda cerrado. También puedes crear un usuario local con `pnpm user:create <usuario> <email>`.
 
-- `/login`: usuario y contraseña, visibilidad de contraseña, carga y errores. Usa el cliente de Better Auth con el plugin `username`.
-- `/dashboard`: protegido por sesión (el nombre viene del usuario). El contenido sigue siendo de ejemplo. Resumen, movimientos, cuentas, objetivos, notas y ajustes. Permite crear movimientos, buscar, filtrar, exportar CSV y crear/eliminar notas. El estado se reinicia al recargar.
+## Comandos
 
-## Diseño
+| Comando | Uso |
+| --- | --- |
+| `pnpm check` | ESLint y TypeScript |
+| `pnpm build` | Compilación de Next.js |
+| `pnpm preview` | Compila y ejecuta el Worker en local |
+| `pnpm db:generate` | Genera migraciones del esquema |
+| `pnpm db:migrate:remote` | Aplica migraciones a producción |
+| `pnpm run deploy` | Compila y despliega en Cloudflare |
 
-Adaptado del sistema local `brightlight-emdash`: Geist, los seis colores cálidos originales, paneles planos, títulos a dos tonos y radios suaves. Tokens en `src/styles/globals.css`. Catálogo completo instalado con `shadcn add --all` (63 componentes UI y sus utilidades).
+Detén `pnpm dev` antes de compilar, previsualizar o desplegar: comparten la carpeta `.next`.
 
-## Autenticación pendiente de activar
+## Arquitectura
 
-Esta entrega prepara la UI. Better Auth tiene el plugin de usuario configurado tanto en servidor como cliente y los campos `username` y `displayUsername` en el esquema Drizzle. No se han ejecutado migraciones ni creado usuarios. Para usar acceso real hay que configurar PostgreSQL y el secreto de Better Auth, generar/revisar/aplicar las migraciones y aprovisionar el usuario. Antes de guardar datos reales, proteger las páginas y las API con comprobación de sesión y sustituir los datos de ejemplo por datos del usuario. El dashboard actual es una demo pública, no una zona privada.
+Next.js · React · Tailwind CSS · shadcn/ui · tRPC · Drizzle · Better Auth. Alojado en Cloudflare Workers, con una base D1 y sincronización bancaria diaria a las 05:00 UTC.
 
-## Comprobaciones
+- `src/server/finance/`: lógica financiera compartida por la web y los agentes.
+- `src/server/api/routers/`: API tRPC protegida por sesión.
+- `src/server/tools/`: herramientas MCP.
+- `src/server/db/schema.ts` y `drizzle/`: esquema y migraciones.
+- `wrangler.jsonc`: bindings, dominio y cron.
+
+El servidor MCP está en `https://baul.raulcano.dev/api/mcp`, con OAuth y permisos de lectura/escritura. Para Claude Code:
 
 ```sh
-pnpm typecheck
-pnpm build
+claude mcp add --transport http baul https://baul.raulcano.dev/api/mcp
 ```
 
-Los componentes de registro shadcn conservan las reglas normales de ESLint; las reglas adicionales de tipos del starter T3 se aplican al código de la app, no al código generado del registro.
-
-## Cloudflare (Workers + D1)
-
-- Next corre en un Worker con `@opennextjs/cloudflare`; la base de datos es la D1 `baul` (binding `DB`, ver `wrangler.jsonc`).
-- No hay registro desde la web (`disableSignUp`): los usuarios se crean con `pnpm user:create <usuario> <email> [--remote]`.
-- Esquema en `src/server/db/schema.ts` → `pnpm db:generate` → `pnpm db:migrate:local` / `pnpm db:migrate:remote`.
-- `pnpm preview` prueba el Worker en local; `pnpm run deploy` lo publica. Ojo: ambos hacen `next build` sobre `.next`, así que para el `pnpm dev` antes o reinícialo después.
-- `worker.ts` envuelve el worker de OpenNext y añade el cron diario (05:00 UTC) que sincroniza Wise/Mercury (`src/server/finance/connections.ts`).
-- Lógica de finanzas en `src/server/finance/` (servicios puros que usan tRPC y, más adelante, el MCP). Los adaptadores de Wise y Mercury están copiados tal cual de papra. Antes del primer deploy: `pnpm wrangler secret put BETTER_AUTH_SECRET`.
-
-### Dominio
-
-Producción: `https://baul.raulcano.dev` (custom domain del Worker; el DNS de raulcano.dev está en Cloudflare desde el 10/11/2026, con el portfolio y `games` en Vercel como CNAME en DNS only). `https://baul.rawraul.workers.dev` sigue activo como respaldo.
-
-Registro: el primer usuario se registra libremente; después solo con `SIGNUP_CODE` (`pnpm wrangler secret put SIGNUP_CODE`), y sin código queda cerrado.
-
-## MCP (agentes)
-
-`https://baul.raulcano.dev/api/mcp`: MCP remoto y sin estado, con OAuth (Better Auth `@better-auth/mcp` + `jwt` + `cimd`).
-
-- Las tools salen del catálogo `src/server/tools/` (finanzas en `finance.ts`), que llama a los mismos servicios que la app. Cada tool declara su riesgo: `read`, `write` (pide el scope `baul:write`) o `destructive`.
-- Para añadir una tool: se escribe en el catálogo, se despliega, y la siguiente sesión del cliente ya la tiene. No hay que reconectar ni volver a iniciar sesión, porque los tokens se renuevan solos.
-- Claude Code: `claude mcp add --transport http baul https://baul.raulcano.dev/api/mcp`, después `/mcp` → Authenticate. Abre `/login` y `/oauth/consent`.
-- claude.ai: Ajustes → Conectores → Añadir conector personalizado → la misma URL.
+En producción, configura `BETTER_AUTH_SECRET` y, si quieres habilitar invitaciones, `SIGNUP_CODE` con `pnpm wrangler secret put <NOMBRE>`. Las credenciales bancarias se gestionan desde Ajustes. Los archivos de entorno y la base local no se incluyen en Git.
