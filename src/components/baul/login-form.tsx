@@ -177,6 +177,14 @@ export function AuthForm({
               )}
         </div>
       </div>
+      <footer className="text-muted-foreground flex justify-center gap-6 text-sm">
+        <Link href="/privacidad" className="underline underline-offset-4">
+          Privacidad
+        </Link>
+        <Link href="/terminos" className="underline underline-offset-4">
+          Términos de uso
+        </Link>
+      </footer>
     </main>
   );
 }
