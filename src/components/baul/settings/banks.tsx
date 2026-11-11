@@ -26,24 +26,17 @@ export function BanksSettings() {
         title="Bancos"
         actions={
           <Button asChild>
-            <Link href="/dashboard/cuentas">
+            <Link href="/dashboard/ajustes/bancos/conectar">
               <Link2 className="size-4" />
               Conectar banco
             </Link>
           </Button>
         }
       />
-      <div className="mt-6">
-        <Button asChild variant="secondary">
-          <Link href="/dashboard/ajustes/bancos/conectar">
-            Conectar o renovar con Enable Banking
-          </Link>
-        </Button>
-      </div>
       <div className="mt-9">
         <SettingsSection
           title="Conexiones"
-          description="Se sincronizan solas cada día a las 06:00. La API key se guarda cifrada."
+          description="Tus bancos se sincronizan cada día. Las credenciales se guardan cifradas."
           bare
         >
           <ul className="bg-muted divide-background divide-y overflow-hidden rounded-xl">
@@ -69,6 +62,13 @@ export function BanksSettings() {
                     {c.lastError && ` · ${c.lastError}`}
                   </p>
                 </div>
+                {c.provider === "enablebanking" && (
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/dashboard/ajustes/bancos/conectar?method=bank">
+                      Renovar permiso
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

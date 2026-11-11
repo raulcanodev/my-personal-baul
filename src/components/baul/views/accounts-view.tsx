@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   PiggyBank,
   Landmark,
@@ -44,9 +45,7 @@ type Account = RouterOutputs["finance"]["accounts"]["list"]["items"][number];
 export function AccountsView() {
   const accounts = api.finance.accounts.list.useQuery();
   const connections = api.finance.connections.list.useQuery();
-  const [dialog, setDialog] = useState<"bank" | "manual" | Account | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<"manual" | Account | null>(null);
   const items = accounts.data?.items ?? [];
   const byCurrency = items.reduce<Record<string, number>>((acc, a) => {
     acc[a.currency] = (acc[a.currency] ?? 0) + a.balanceCents;
@@ -63,9 +62,11 @@ export function AccountsView() {
               <Plus className="size-4" />
               Cuenta manual
             </Button>
-            <Button onClick={() => setDialog("bank")}>
-              <Link2 className="size-4" />
-              Conectar banco
+            <Button asChild>
+              <Link href="/dashboard/ajustes/bancos/conectar">
+                <Link2 className="size-4" />
+                Conectar banco
+              </Link>
             </Button>
           </>
         }
@@ -118,10 +119,6 @@ export function AccountsView() {
         />
       </section>
 
-      <ConnectBankDialog
-        open={dialog === "bank"}
-        onOpenChange={(o) => setDialog(o ? "bank" : null)}
-      />
       <AccountDialog
         account={
           dialog === "manual"
@@ -270,102 +267,6 @@ function AccountList({
         </ul>
       )}
     </div>
-  );
-}
-
-function ConnectBankDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-}) {
-  const utils = api.useUtils();
-  const [provider, setProvider] = useState<"wise" | "mercury">("wise");
-  const add = api.finance.connections.add.useMutation({
-    onSuccess: async (r) => {
-      if (r.errors.length) {
-        toast.warning(`Conectado, con avisos: ${r.errors.join(" · ")}`);
-      } else {
-        toast.success(
-          `Conectado · ${r.accounts} cuentas, ${r.syncedCount} movimientos`,
-        );
-      }
-      onOpenChange(false);
-      await utils.finance.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Conectar banco</DialogTitle>
-          <DialogDescription>
-            {provider === "wise"
-              ? "Wise → Settings → API tokens (solo lectura)."
-              : "Mercury → Settings → API Tokens (solo lectura)."}
-          </DialogDescription>
-        </DialogHeader>
-        <a
-          className="text-sm underline"
-          href="/dashboard/ajustes/bancos/conectar"
-        >
-          Revolut y otros bancos · Enable Banking
-        </a>
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            add.mutate({
-              provider,
-              name: formText(f, "name"),
-              apiKey: formText(f, "apiKey").trim(),
-            });
-          }}
-        >
-          <div className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1">
-            {(["wise", "mercury"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setProvider(p)}
-                className={`h-9 rounded-md text-sm capitalize ${provider === p ? "bg-background shadow-xs" : "text-muted-foreground"}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bank-name">Nombre</Label>
-            <Input
-              id="bank-name"
-              name="name"
-              required
-              key={provider}
-              defaultValue={provider === "wise" ? "Wise" : "Mercury"}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bank-key">API key</Label>
-            <Input
-              id="bank-key"
-              name="apiKey"
-              type="password"
-              required
-              autoComplete="off"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={add.isPending}>
-              {add.isPending && <Loader2 className="size-4 animate-spin" />}
-              Conectar y sincronizar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
