@@ -666,7 +666,7 @@ export const planningTools = [
     name: "categorizar_comercio",
     title: "Categorizar comercio",
     description:
-      "Categoriza todos los movimientos de un comercio de una vez (el `comercio` tal cual sale en buscar_movimientos o comercios_sin_categoria) y lo recuerda para los que lleguen después. Por defecto actualiza los que no tienen categoría y los no revisados; con incluir_revisados también cambia los que ya clasificaste a mano.",
+      "Categoriza todos los movimientos de un comercio de una vez (el `comercio` tal cual sale en buscar_movimientos o comercios_sin_categoria) y lo recuerda para los que lleguen después. Por defecto actualiza los que no tienen categoría y los no revisados; con incluir_revisados también cambia los que ya clasificaste a mano. Con `suscripcion_id` vincula además todos esos cargos a una suscripción (p. ej. todos los de netflix a la suscripción Netflix).",
     risk: "write",
     input: z.object({
       comercio: z.string().min(1),

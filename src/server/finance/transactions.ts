@@ -17,6 +17,7 @@ import {
   categories,
   merchantRules,
   moneyAccounts,
+  subscriptions,
   transactions,
   type Scope,
 } from "@/server/db/schema";
@@ -30,6 +31,8 @@ export type TransactionFilters = {
   search?: string;
   accountIds?: string[];
   categoryIds?: string[];
+  /** Charges linked to any of these subscriptions */
+  subscriptionIds?: string[];
   /** "uncategorized" is a pseudo category */
   uncategorized?: boolean;
   scope?: Scope;
@@ -74,6 +77,8 @@ function buildWhere(userId: string, f: TransactionFilters) {
     categoryFilters.push(inArray(transactions.categoryId, f.categoryIds));
   if (f.uncategorized) categoryFilters.push(isNull(transactions.categoryId));
   if (categoryFilters.length) where.push(or(...categoryFilters)!);
+  if (f.subscriptionIds?.length)
+    where.push(inArray(transactions.subscriptionId, f.subscriptionIds));
   if (f.scope) where.push(eq(categories.scope, f.scope));
   if (f.direction === "in") where.push(gte(transactions.amountCents, 0));
   if (f.direction === "out") where.push(lt(transactions.amountCents, 0));
@@ -107,6 +112,7 @@ export async function listTransactions(
         reviewedAt: transactions.reviewedAt,
         categoryId: transactions.categoryId,
         subscriptionId: transactions.subscriptionId,
+        subscriptionName: subscriptions.name,
         accountId: transactions.accountId,
         accountName: moneyAccounts.name,
         categoryName: categories.name,
@@ -115,6 +121,10 @@ export async function listTransactions(
       .from(transactions)
       .innerJoin(moneyAccounts, eq(transactions.accountId, moneyAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(
+        subscriptions,
+        eq(transactions.subscriptionId, subscriptions.id),
+      )
       .where(where)
       .orderBy(desc(transactions.date))
       .limit(page.limit)
@@ -149,10 +159,21 @@ export async function listTransactions(
   };
 }
 
+/** The subscription, if it exists and belongs to the user; throws otherwise */
+async function ownSubscription({ db, userId }: FinanceContext, id: string) {
+  const [sub] = await db
+    .select({ id: subscriptions.id, categoryId: subscriptions.categoryId })
+    .from(subscriptions)
+    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)));
+  if (!sub) throw new Error("Suscripción no encontrada");
+  return sub;
+}
+
 /**
  * Sets the category, subscription, note or one-off flag of a transaction; whatever is left
- * undefined is kept (null clears). With `rememberMerchant` and a category it becomes a merchant
- * rule: future syncs and the pending ones of that merchant get it too.
+ * undefined is kept (null clears). Linking a subscription to an uncategorized charge also gives
+ * it the subscription's category. With `rememberMerchant` and a category or subscription it
+ * becomes a merchant rule: future syncs and the pending ones of that merchant get it too.
  */
 export async function categorizeTransaction(
   ctx: FinanceContext,
@@ -171,9 +192,15 @@ export async function categorizeTransaction(
     .from(transactions)
     .where(and(eq(transactions.id, input.id), eq(transactions.userId, userId)));
   if (!tx) throw new Error("Movimiento no encontrado");
+  const sub = input.subscriptionId
+    ? await ownSubscription(ctx, input.subscriptionId)
+    : null;
+  const categoryId =
+    input.categoryId !== undefined
+      ? input.categoryId
+      : (tx.categoryId ?? sub?.categoryId ?? null);
   const values = {
-    categoryId:
-      input.categoryId === undefined ? tx.categoryId : input.categoryId,
+    categoryId,
     subscriptionId:
       input.subscriptionId === undefined
         ? tx.subscriptionId
@@ -189,16 +216,23 @@ export async function categorizeTransaction(
     })
     .where(eq(transactions.id, tx.id));
 
-  // Only a category decision is worth remembering for the merchant
-  if (input.rememberMerchant && input.categoryId !== undefined && tx.merchant) {
+  // Only what was decided now is remembered for the merchant, so linking a subscription keeps
+  // the merchant's category rule and vice versa
+  const decided = {
+    ...(input.categoryId !== undefined ? { categoryId } : {}),
+    ...(input.subscriptionId !== undefined
+      ? { subscriptionId: values.subscriptionId }
+      : {}),
+  };
+  if (input.rememberMerchant && Object.keys(decided).length && tx.merchant) {
     await db
       .insert(merchantRules)
       .values({ id: newId("rul"), userId, merchant: tx.merchant, ...values })
       .onConflictDoUpdate({
         target: [merchantRules.userId, merchantRules.merchant],
-        set: values,
+        set: decided,
       });
-    await applyRuleToExisting(ctx, tx.merchant, values);
+    await applyRuleToExisting(ctx, tx.merchant, decided);
   }
 }
 
@@ -271,6 +305,8 @@ export async function categorizeMerchant(
     note?: string | null;
   },
 ) {
+  if (input.subscriptionId)
+    await ownSubscription({ db, userId }, input.subscriptionId);
   // Accept the merchant key or the raw bank name ("Amazon EU S.a.r.l." → "amazon eu")
   const exact = input.merchant.trim().toLowerCase();
   const [{ found } = { found: 0 }] = await db

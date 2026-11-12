@@ -1,7 +1,8 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 
 import {
   subscriptions,
+  transactions,
   type BillingCycle,
   type Scope,
 } from "@/server/db/schema";
@@ -23,14 +24,36 @@ export type SubscriptionInput = {
 };
 
 export async function listSubscriptions({ db, userId }: FinanceContext) {
-  const rows = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .orderBy(asc(subscriptions.name));
-  const rates = await getRates();
+  const [rows, charges, rates] = await Promise.all([
+    db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(asc(subscriptions.name)),
+    // The bank charges linked to each subscription
+    db
+      .select({
+        subscriptionId: transactions.subscriptionId,
+        count: sql<number>`count(*)`,
+        lastChargeAt: sql<number>`max(${transactions.date})`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          isNotNull(transactions.subscriptionId),
+        ),
+      )
+      .groupBy(transactions.subscriptionId),
+    getRates(),
+  ]);
+  const chargesBySub = new Map(charges.map((c) => [c.subscriptionId, c]));
   const items = rows.map((s) => ({
     ...s,
+    linkedCount: chargesBySub.get(s.id)?.count ?? 0,
+    lastChargeAt: chargesBySub.has(s.id)
+      ? new Date(chargesBySub.get(s.id)!.lastChargeAt)
+      : null,
     monthlyCents: monthlyCents(s.amountCents, s.cycle),
     monthlyBaseCents: toBase(
       monthlyCents(s.amountCents, s.cycle),

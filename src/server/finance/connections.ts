@@ -275,7 +275,7 @@ export async function syncAllConnections(db: Db, secret: string) {
 export async function applyRuleToExisting(
   { db, userId }: FinanceContext,
   merchant: string,
-  values: { categoryId: string | null; subscriptionId: string | null },
+  values: { categoryId?: string | null; subscriptionId?: string | null },
 ) {
   await db
     .update(transactions)

@@ -9,6 +9,7 @@ import {
   Check,
   Landmark,
   Plus,
+  Repeat,
   Shapes,
   Tag,
   Trash2,
@@ -53,6 +54,8 @@ import {
 type Transaction =
   RouterOutputs["finance"]["transactions"]["list"]["items"][number];
 type Category = RouterOutputs["finance"]["categories"]["list"][number];
+type Subscription =
+  RouterOutputs["finance"]["subscriptions"]["list"]["items"][number];
 
 const UNCATEGORIZED = "__none";
 const PAGE = 50;
@@ -61,6 +64,7 @@ const PAGE = 50;
 const PARAM: Record<string, string> = {
   account: "cuenta",
   category: "categoria",
+  subscription: "suscripcion",
   scope: "ambito",
   direction: "tipo",
 };
@@ -133,6 +137,7 @@ export function TransactionsView() {
 
   const accounts = api.finance.accounts.list.useQuery();
   const categories = api.finance.categories.list.useQuery();
+  const subscriptions = api.finance.subscriptions.list.useQuery();
 
   const selectedCategories = getSelectedFilterValues(filters, "category");
   const dateRange = getActiveFilter(filters, "date")?.value;
@@ -146,6 +151,7 @@ export function TransactionsView() {
       accountIds: getSelectedFilterValues(filters, "account"),
       categoryIds: selectedCategories.filter((c) => c !== UNCATEGORIZED),
       uncategorized: selectedCategories.includes(UNCATEGORIZED) || undefined,
+      subscriptionIds: getSelectedFilterValues(filters, "subscription"),
       scope,
       direction,
       from: isDateRangeValue(dateRange) ? dateRange.from : undefined,
@@ -188,6 +194,18 @@ export function TransactionsView() {
           ),
         })),
       ],
+    },
+    {
+      id: "subscription",
+      type: "multi-select",
+      label: "Suscripción",
+      icon: Repeat,
+      searchable: true,
+      options: (subscriptions.data?.items ?? []).map((s) => ({
+        value: s.id,
+        label: s.name,
+        description: s.isActive ? undefined : "Cancelada",
+      })),
     },
     {
       id: "scope",
@@ -293,6 +311,7 @@ export function TransactionsView() {
                   key={t.id}
                   transaction={t}
                   categories={categories.data ?? []}
+                  subscriptions={subscriptions.data?.items ?? []}
                 />
               ))}
             </ul>
@@ -324,9 +343,11 @@ export function TransactionsView() {
 function TransactionRow({
   transaction: t,
   categories,
+  subscriptions,
 }: {
   transaction: Transaction;
   categories: Category[];
+  subscriptions: Subscription[];
 }) {
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
@@ -355,6 +376,12 @@ function TransactionRow({
             ` · ${t.description}`}
           {t.status === "pending" && " · pendiente"}
           {t.isOneOff && " · puntual"}
+          {t.subscriptionName && (
+            <>
+              {" · "}
+              <Repeat className="-mt-0.5 inline size-3" /> {t.subscriptionName}
+            </>
+          )}
         </p>
       </div>
       <Popover open={open} onOpenChange={setOpen}>
@@ -396,6 +423,36 @@ function TransactionRow({
               </button>
             ))}
           </div>
+          {(t.amountCents < 0 || t.subscriptionId) && (
+            <label className="mt-1 flex items-center justify-between gap-2 border-t px-2 pt-2 text-xs">
+              <span className="text-muted-foreground shrink-0">
+                Suscripción
+              </span>
+              <NativeSelect
+                size="sm"
+                className="w-36"
+                aria-label="Suscripción"
+                value={t.subscriptionId ?? ""}
+                disabled={categorize.isPending}
+                onChange={(e) =>
+                  categorize.mutate({
+                    id: t.id,
+                    subscriptionId: e.target.value || null,
+                    rememberMerchant: remember,
+                  })
+                }
+              >
+                <NativeSelectOption value="">Ninguna</NativeSelectOption>
+                {subscriptions
+                  .filter((s) => s.isActive || s.id === t.subscriptionId)
+                  .map((s) => (
+                    <NativeSelectOption key={s.id} value={s.id}>
+                      {s.name}
+                    </NativeSelectOption>
+                  ))}
+              </NativeSelect>
+            </label>
+          )}
           {t.amountCents < 0 && (
             <label className="mt-1 flex items-center justify-between gap-2 border-t px-2 pt-2 text-xs">
               <span className="text-muted-foreground">

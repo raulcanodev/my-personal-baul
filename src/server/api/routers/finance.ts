@@ -240,6 +240,7 @@ export const financeRouter = createTRPCRouter({
           search: z.string().optional(),
           accountIds: z.array(z.string()).optional(),
           categoryIds: z.array(z.string()).optional(),
+          subscriptionIds: z.array(z.string()).optional(),
           uncategorized: z.boolean().optional(),
           scope: scope.optional(),
           direction: z.enum(["in", "out"]).optional(),

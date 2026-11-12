@@ -78,7 +78,7 @@ export const financeTools = [
     name: "buscar_movimientos",
     title: "Buscar movimientos",
     description:
-      "Lista movimientos bancarios, del más reciente al más antiguo, con filtros. `texto` busca cada palabra en concepto, comercio, nota, cuenta y categoría; un número también busca por importe (36,80 o 36.80). Devuelve el total de coincidencias y entradas/salidas en EUR sin transferencias. Usa `sin_categoria` para encontrar lo que falta por clasificar.",
+      "Lista movimientos bancarios, del más reciente al más antiguo, con filtros. `texto` busca cada palabra en concepto, comercio, nota, cuenta y categoría; un número también busca por importe (36,80 o 36.80). Devuelve el total de coincidencias y entradas/salidas en EUR sin transferencias. Usa `sin_categoria` para encontrar lo que falta por clasificar y `suscripcion_ids` para ver los cargos vinculados a una suscripción.",
     risk: "read",
     input: z.object({
       texto: z.string().optional(),
@@ -87,6 +87,10 @@ export const financeTools = [
       cuenta_ids: z.array(z.string()).optional(),
       categoria_ids: z.array(z.string()).optional(),
       sin_categoria: z.boolean().optional(),
+      suscripcion_ids: z
+        .array(z.string())
+        .optional()
+        .describe("solo los cargos vinculados a estas suscripciones"),
       ambito: z
         .enum(SCOPES)
         .optional()
@@ -105,6 +109,7 @@ export const financeTools = [
           accountIds: i.cuenta_ids,
           categoryIds: i.categoria_ids,
           uncategorized: i.sin_categoria,
+          subscriptionIds: i.suscripcion_ids,
           scope: i.ambito,
           direction:
             i.tipo === "ingresos"
@@ -131,6 +136,8 @@ export const financeTools = [
           cuenta: t.accountName,
           categoria_id: t.categoryId,
           categoria: t.categoryName,
+          suscripcion_id: t.subscriptionId,
+          suscripcion: t.subscriptionName,
           revisado: t.reviewedAt !== null,
           puntual: t.isOneOff,
           nota: t.note,
@@ -143,7 +150,7 @@ export const financeTools = [
     name: "categorizar_movimiento",
     title: "Categorizar movimiento",
     description:
-      "Edita un movimiento: categoría, suscripción, nota (para qué fue la compra) o si es un gasto `puntual`. Lo que no envíes se queda como está; null lo borra. Marca puntual=true los gastos extraordinarios que no se repiten (abogado, una reparación, una multa): siguen contando en el gasto del mes, pero no en la media mensual con la que se hacen la previsión y los escenarios. Con `recordar_comercio` (por defecto sí, y solo si envías categoria_id) la categoría se guarda para ese comercio y se aplica a sus movimientos sin revisar y a los que lleguen; pon recordar_comercio=false en tiendas donde se compra de todo (Amazon, AliExpress, El Corte Inglés…) o cuando esta compra es una excepción. Ids de categoría en listar_categorias.",
+      "Edita un movimiento: categoría, suscripción, nota (para qué fue la compra) o si es un gasto `puntual`. Lo que no envíes se queda como está; null lo borra. `suscripcion_id` (de listar_suscripciones) vincula el cargo a su suscripción: así se sabe cuándo y cuánto se cobró de verdad, y ese cargo deja de contar como gasto variable en la previsión; si el movimiento no tenía categoría, toma la de la suscripción. Marca puntual=true los gastos extraordinarios que no se repiten (abogado, una reparación, una multa): siguen contando en el gasto del mes, pero no en la media mensual con la que se hacen la previsión y los escenarios. Con `recordar_comercio` (por defecto sí, y solo si envías categoria_id o suscripcion_id) lo que envíes se guarda para ese comercio y se aplica a sus movimientos sin revisar y a los que lleguen; pon recordar_comercio=false en tiendas donde se compra de todo (Amazon, AliExpress, El Corte Inglés…) o cuando esta compra es una excepción. Ids de categoría en listar_categorias.",
     risk: "write",
     input: z.object({
       id: z.string(),
@@ -249,7 +256,7 @@ export const financeTools = [
     name: "listar_suscripciones",
     title: "Listar suscripciones",
     description:
-      "Suscripciones con importe, ciclo, próximo cobro, ámbito (personal o trabajo) y su coste mensual en EUR, más el total mensual y anual de las activas separado en personal y trabajo.",
+      "Suscripciones con importe, ciclo, próximo cobro, ámbito (personal o trabajo), su coste mensual en EUR y cuántos cargos del banco tiene vinculados (con la fecha del último), más el total mensual y anual de las activas separado en personal y trabajo. Una suscripción activa sin cargos vinculados se puede enlazar con categorizar_movimiento (suscripcion_id) o categorizar_comercio; los cargos se ven con buscar_movimientos (suscripcion_ids).",
     risk: "read",
     input: z.object({ solo_activas: z.boolean().default(true) }),
     run: async ({ solo_activas }, ctx) => {
@@ -274,6 +281,8 @@ export const financeTools = [
             ambito: s.scope,
             categoria_id: s.categoryId,
             proximo_cobro: s.nextChargeOn,
+            cargos_vinculados: s.linkedCount,
+            ultimo_cargo: s.lastChargeAt?.toISOString().slice(0, 10) ?? null,
             activa: s.isActive,
             web: s.url,
             notas: s.notes,
