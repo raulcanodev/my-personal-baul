@@ -89,6 +89,16 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+  --scrollbar-thumb: color-mix(
+    in oklch,
+    var(--muted-foreground) 45%,
+    transparent
+  );
+  --scrollbar-thumb-hover: color-mix(
+    in oklch,
+    var(--muted-foreground) 70%,
+    transparent
+  );
 }
 
 .dark {
@@ -132,6 +142,56 @@
     outline-offset: 3px;
   }
 }
+/* Shared by the document, nested overflow containers and both color themes. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+}
+/* Radix scroll areas render their own scrollbar instead of the native one. */
+[data-slot="scroll-area-scrollbar"] {
+  background: transparent;
+  border: 0;
+  padding: 1px;
+}
+[data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+  width: 6px;
+}
+[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
+  height: 6px;
+}
+[data-slot="scroll-area-thumb"] {
+  background: var(--scrollbar-thumb);
+}
+[data-slot="scroll-area-thumb"]:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
+  [data-slot="scroll-area-thumb"] {
+    background: CanvasText;
+  }
+}
+
 /* Fields are filled, not outlined (Brightlight). In the base layer so utilities can still
    override them per use. */
 @layer base {
@@ -146,14 +206,17 @@
 /* On a grey card (settings, forms on bg-muted) a grey field disappears: there they are white
    with a visible border. `data-plain` opts out (inline editable text). */
 .bg-muted
-  :is([data-slot="input"], [data-slot="textarea"], [data-slot="native-select"]):not(
-    [data-plain]
-  ) {
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="native-select"]
+  ):not([data-plain]) {
   background: var(--field);
   border-color: var(--field-border);
 }
 /* Same height for every field inside a dialog, so rows of inputs and selects line up */
-[data-slot="dialog-content"] :is([data-slot="input"], [data-slot="native-select"]) {
+[data-slot="dialog-content"]
+  :is([data-slot="input"], [data-slot="native-select"]) {
   height: 2.5rem;
 }
 /* iOS Safari draws date inputs natively with their own minimum width/height: make them
