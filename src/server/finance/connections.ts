@@ -1,6 +1,6 @@
 // Bank connections and sync, following papra's syncBankTransactions/refreshAccountBalances, with
 // two changes: one API key discovers all its accounts, and merchant rules replace the rule engine.
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import type { Db } from "@/server/db";
 import {
@@ -358,6 +358,86 @@ export async function classifyInternalTransfers(db: Db, userId: string) {
         ),
       ),
     );
+  await pairTransfersAcrossAccounts(db, userId, transfer!.id);
+}
+
+const PAIR_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * Money that leaves one of my accounts and lands in another (Wise → Revolut, a Revolut pocket →
+ * the main balance) shows up twice: −X in one account and +X in the other. When both legs are
+ * there, same currency and amount, a couple of days apart, and there is exactly one possible
+ * match on each side, both are transfers. Only legs the user has not categorised or reviewed are
+ * changed; a leg that already is a transfer (a merchant rule) still counts as the match.
+ * What happens next to that money (paying someone from Revolut) is its own movement and keeps
+ * its own category, so it still counts as spending.
+ */
+async function pairTransfersAcrossAccounts(
+  db: Db,
+  userId: string,
+  transferId: string,
+) {
+  const rows = await db
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      date: transactions.date,
+      amountCents: transactions.amountCents,
+      currency: transactions.currency,
+      open: sql<number>`${transactions.categoryId} is null and ${transactions.reviewedAt} is null`,
+    })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        sql`${transactions.amountCents} <> 0`,
+        or(
+          and(isNull(transactions.categoryId), isNull(transactions.reviewedAt)),
+          eq(categories.kind, "transfer"),
+        ),
+      ),
+    );
+
+  const byKey = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const key = `${r.currency}:${Math.abs(r.amountCents)}`;
+    const list = byKey.get(key);
+    if (list) list.push(r);
+    else byKey.set(key, [r]);
+  }
+
+  const toMark = new Set<string>();
+  for (const list of byKey.values()) {
+    if (list.length < 2) continue;
+    const near = (a: (typeof rows)[number], b: (typeof rows)[number]) =>
+      a.accountId !== b.accountId &&
+      Math.sign(a.amountCents) !== Math.sign(b.amountCents) &&
+      Math.abs(a.date.getTime() - b.date.getTime()) <= PAIR_WINDOW_MS;
+    for (const out of list.filter((r) => r.amountCents < 0)) {
+      const ins = list.filter((r) => near(out, r));
+      if (ins.length !== 1) continue;
+      const inn = ins[0]!;
+      // Ambiguous if that incoming leg could also pair with another outgoing one
+      if (list.filter((r) => near(inn, r)).length !== 1) continue;
+      if (!out.open && !inn.open) continue;
+      if (out.open) toMark.add(out.id);
+      if (inn.open) toMark.add(inn.id);
+    }
+  }
+
+  const ids = [...toMark];
+  for (let i = 0; i < ids.length; i += 90) {
+    await db
+      .update(transactions)
+      .set({ categoryId: transferId })
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          inArray(transactions.id, ids.slice(i, i + 90)),
+        ),
+      );
+  }
 }
 
 /**
