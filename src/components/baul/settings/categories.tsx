@@ -12,24 +12,13 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { api, type RouterOutputs } from "@/trpc/react";
-import { KIND_LABEL, SCOPE_LABEL } from "../format";
+import { CATEGORY_COLORS, KIND_LABEL, SCOPE_LABEL } from "../format";
 import { PageHeader } from "../page-header";
 import { SettingsSection } from "./settings-section";
 
 type Category = RouterOutputs["finance"]["categories"]["list"][number];
 
-const COLORS = [
-  "#64748b",
-  "#7c3aed",
-  "#0891b2",
-  "#b45309",
-  "#65a30d",
-  "#0f766e",
-  "#db2777",
-  "#dc2626",
-  "#16a34a",
-  "#a8a29e",
-];
+const COLORS = CATEGORY_COLORS;
 
 export function CategoriesSettings() {
   const categories = api.finance.categories.list.useQuery();

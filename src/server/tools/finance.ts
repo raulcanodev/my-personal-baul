@@ -150,14 +150,14 @@ export const financeTools = [
     name: "categorizar_movimiento",
     title: "Categorizar movimiento",
     description:
-      "Edita un movimiento: categoría, suscripción, nota (para qué fue la compra) o si es un gasto `puntual`. Lo que no envíes se queda como está; null lo borra. `suscripcion_id` (de listar_suscripciones) vincula el cargo a su suscripción: así se sabe cuándo y cuánto se cobró de verdad, y ese cargo deja de contar como gasto variable en la previsión; si el movimiento no tenía categoría, toma la de la suscripción. Marca puntual=true los gastos extraordinarios que no se repiten (abogado, una reparación, una multa): siguen contando en el gasto del mes, pero no en la media mensual con la que se hacen la previsión y los escenarios. Con `recordar_comercio` (por defecto sí, y solo si envías categoria_id o suscripcion_id) lo que envíes se guarda para ese comercio y se aplica a sus movimientos sin revisar y a los que lleguen; pon recordar_comercio=false en tiendas donde se compra de todo (Amazon, AliExpress, El Corte Inglés…) o cuando esta compra es una excepción. Ids de categoría en listar_categorias.",
+      "Edita un movimiento: categoría, suscripción, nota (para qué fue la compra) o si es un gasto `puntual`. Lo que no envíes se queda como está; null lo borra. `suscripcion_id` (de listar_suscripciones) vincula el cargo a su suscripción: así se sabe cuándo y cuánto se cobró de verdad, y ese cargo deja de contar como gasto variable en la previsión; si el movimiento no tenía categoría, toma la de la suscripción. Marca puntual=true los gastos extraordinarios que no se repiten (abogado, una reparación, una multa): siguen contando en el gasto del mes, pero no en la media mensual con la que se hacen la previsión y los escenarios. Con `recordar_comercio`=true (por defecto no; solo cuenta si envías categoria_id o suscripcion_id) lo que envíes se guarda para ese comercio y se aplica a sus movimientos sin revisar y a los que lleguen: úsalo solo cuando todo lo de ese comercio es siempre lo mismo (Netflix, el alquiler), nunca en tiendas donde se compra de todo (Amazon, AliExpress…) ni con personas (un préstamo a alguien no convierte en préstamo todo lo que le pagas). Ids de categoría en listar_categorias.",
     risk: "write",
     input: z.object({
       id: z.string(),
       categoria_id: z.string().nullable().optional(),
       suscripcion_id: z.string().nullable().optional(),
       puntual: z.boolean().optional(),
-      recordar_comercio: z.boolean().default(true),
+      recordar_comercio: z.boolean().default(false),
       nota: z.string().max(500).nullable().optional(),
     }),
     run: async (i, ctx) => {

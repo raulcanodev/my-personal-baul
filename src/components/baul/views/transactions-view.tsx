@@ -38,8 +38,15 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { api, type RouterOutputs } from "@/trpc/react";
-import { money, parseCents, shortDate, formText } from "../format";
+import {
+  CATEGORY_COLORS,
+  money,
+  parseCents,
+  shortDate,
+  formText,
+} from "../format";
 import { PageHeader } from "../page-header";
 import { TableToolbar } from "../table/table-toolbar";
 import {
@@ -351,7 +358,9 @@ function TransactionRow({
 }) {
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [details, setDetails] = useState(false);
+  // Off by default: a shop where you buy a bit of everything (Amazon…) should not get one category
+  const [remember, setRemember] = useState(false);
   const categorize = api.finance.transactions.categorize.useMutation({
     onSuccess: async () => {
       setOpen(false);
@@ -367,7 +376,11 @@ function TransactionRow({
 
   return (
     <li className="flex items-center gap-3 px-4 py-3 sm:px-5">
-      <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setDetails(true)}
+        className="-my-1 min-w-0 flex-1 rounded-md py-1 text-left"
+      >
         <p className="truncate text-sm">{t.counterparty ?? t.description}</p>
         <p className="text-muted-foreground truncate text-xs">
           {shortDate(t.date)} · {t.accountName}
@@ -383,7 +396,7 @@ function TransactionRow({
             </>
           )}
         </p>
-      </div>
+      </button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
@@ -423,6 +436,17 @@ function TransactionRow({
               </button>
             ))}
           </div>
+          <NewCategory
+            income={t.amountCents > 0}
+            disabled={categorize.isPending}
+            onCreated={(categoryId) =>
+              categorize.mutate({
+                id: t.id,
+                categoryId,
+                rememberMerchant: remember,
+              })
+            }
+          />
           {(t.amountCents < 0 || t.subscriptionId) && (
             <label className="mt-1 flex items-center justify-between gap-2 border-t px-2 pt-2 text-xs">
               <span className="text-muted-foreground shrink-0">
@@ -497,7 +521,254 @@ function TransactionRow({
           </button>
         </ConfirmDialog>
       )}
+      <TransactionDetails
+        transaction={t}
+        categories={categories}
+        subscriptions={subscriptions}
+        open={details}
+        onOpenChange={setDetails}
+      />
     </li>
+  );
+}
+
+/** Creates a category right from a charge's popover (expense or income by the charge's sign) */
+function NewCategory({
+  income,
+  disabled,
+  onCreated,
+}: {
+  income: boolean;
+  disabled: boolean;
+  onCreated: (categoryId: string) => void;
+}) {
+  const utils = api.useUtils();
+  const [name, setName] = useState("");
+  const [scope, setScope] = useState<"personal" | "work">("personal");
+  const create = api.finance.categories.create.useMutation({
+    onSuccess: (category) => {
+      setName("");
+      onCreated(category.id);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  return (
+    <form
+      className="mt-1 flex items-center gap-1.5 border-t px-1 pt-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const count = utils.finance.categories.list.getData()?.length ?? 0;
+        create.mutate({
+          name: trimmed,
+          kind: income ? "income" : "expense",
+          scope,
+          color: CATEGORY_COLORS[count % CATEGORY_COLORS.length],
+        });
+      }}
+    >
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Nueva categoría"
+        aria-label="Nombre de la nueva categoría"
+        maxLength={60}
+        className="h-8 min-w-0 flex-1 text-sm"
+      />
+      <NativeSelect
+        size="sm"
+        className="w-24 shrink-0"
+        aria-label="Ámbito"
+        value={scope}
+        onChange={(e) => setScope(e.target.value as "personal" | "work")}
+      >
+        <NativeSelectOption value="personal">Personal</NativeSelectOption>
+        <NativeSelectOption value="work">Trabajo</NativeSelectOption>
+      </NativeSelect>
+      <Button
+        type="submit"
+        size="icon-sm"
+        aria-label="Crear categoría"
+        disabled={disabled || create.isPending || !name.trim()}
+      >
+        <Plus className="size-4" />
+      </Button>
+    </form>
+  );
+}
+
+const fullDate = (date: Date) =>
+  new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date));
+
+/** Everything about one movement, with category, subscription, note and one-off editable */
+function TransactionDetails({
+  transaction: t,
+  categories,
+  subscriptions,
+  open,
+  onOpenChange,
+}: {
+  transaction: Transaction;
+  categories: Category[];
+  subscriptions: Subscription[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const utils = api.useUtils();
+  const save = api.finance.transactions.categorize.useMutation({
+    onSuccess: async () => {
+      toast.success("Movimiento guardado");
+      onOpenChange(false);
+      await utils.finance.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const rows: [string, string | null][] = [
+    ["Fecha", fullDate(t.date)],
+    ["Cuenta", t.accountName],
+    ["Concepto", t.description],
+    ["Contraparte", t.counterparty],
+    ["Comercio", t.merchant],
+    ["Estado", t.status === "pending" ? "Pendiente" : "Confirmado"],
+    ["Revisado", t.reviewedAt ? shortDate(t.reviewedAt) : "No"],
+  ];
+  const isOut = t.amountCents < 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="truncate">
+            {t.counterparty ?? t.description}
+          </DialogTitle>
+          <DialogDescription
+            className={`text-2xl tabular-nums ${t.amountCents > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}
+          >
+            {money(t.amountCents, t.currency, { sign: true })}
+          </DialogDescription>
+        </DialogHeader>
+        <dl className="bg-muted divide-background divide-y rounded-lg text-sm">
+          {rows
+            .filter(([, value]) => value)
+            .map(([label, value]) => (
+              <div key={label} className="flex gap-3 px-3 py-2">
+                <dt className="text-muted-foreground w-24 shrink-0">{label}</dt>
+                <dd className="min-w-0 flex-1 break-words">{value}</dd>
+              </div>
+            ))}
+        </dl>
+        <form
+          key={`${t.id}-${open}`}
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const categoryId = formText(f, "category") || null;
+            const subscriptionId = formText(f, "subscription") || null;
+            const note = formText(f, "note").trim() || null;
+            const isOneOff = f.get("oneOff") === "on";
+            save.mutate({
+              id: t.id,
+              ...(categoryId !== t.categoryId ? { categoryId } : {}),
+              ...(isOut && subscriptionId !== t.subscriptionId
+                ? { subscriptionId }
+                : {}),
+              ...(note !== t.note ? { note } : {}),
+              ...(isOut && isOneOff !== t.isOneOff ? { isOneOff } : {}),
+              rememberMerchant: f.get("remember") === "on",
+            });
+          }}
+        >
+          <div className="grid grid-cols-2 gap-3 *:min-w-0">
+            <div className="space-y-2">
+              <Label htmlFor={`tx-${t.id}-category`}>Categoría</Label>
+              <NativeSelect
+                id={`tx-${t.id}-category`}
+                name="category"
+                defaultValue={t.categoryId ?? ""}
+                className="w-full"
+              >
+                <NativeSelectOption value="">Sin categoría</NativeSelectOption>
+                {categories.map((c) => (
+                  <NativeSelectOption key={c.id} value={c.id}>
+                    {c.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            {isOut && (
+              <div className="space-y-2">
+                <Label htmlFor={`tx-${t.id}-subscription`}>Suscripción</Label>
+                <NativeSelect
+                  id={`tx-${t.id}-subscription`}
+                  name="subscription"
+                  defaultValue={t.subscriptionId ?? ""}
+                  className="w-full"
+                >
+                  <NativeSelectOption value="">Ninguna</NativeSelectOption>
+                  {subscriptions
+                    .filter((s) => s.isActive || s.id === t.subscriptionId)
+                    .map((s) => (
+                      <NativeSelectOption key={s.id} value={s.id}>
+                        {s.name}
+                      </NativeSelectOption>
+                    ))}
+                </NativeSelect>
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`tx-${t.id}-note`}>Nota</Label>
+            <Textarea
+              id={`tx-${t.id}-note`}
+              name="note"
+              rows={2}
+              maxLength={500}
+              defaultValue={t.note ?? ""}
+              placeholder="Para qué fue"
+            />
+          </div>
+          {isOut && (
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Gasto puntual{" "}
+                <span className="text-muted-foreground">
+                  (fuera de la media de la previsión)
+                </span>
+              </span>
+              <Switch name="oneOff" defaultChecked={t.isOneOff} />
+            </label>
+          )}
+          {t.merchant && (
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Siempre así para{" "}
+                <span className="font-medium">{t.merchant}</span>
+              </span>
+              <Switch name="remember" defaultChecked={false} />
+            </label>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

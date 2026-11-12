@@ -73,3 +73,17 @@ export function formText(form: FormData, name: string) {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
+
+/** Palette new categories cycle through */
+export const CATEGORY_COLORS = [
+  "#64748b",
+  "#7c3aed",
+  "#0891b2",
+  "#b45309",
+  "#65a30d",
+  "#0f766e",
+  "#db2777",
+  "#dc2626",
+  "#16a34a",
+  "#a8a29e",
+];
