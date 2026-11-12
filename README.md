@@ -30,7 +30,7 @@ pnpm db:migrate:local
 pnpm dev
 ```
 
-Abre [localhost:43871](http://localhost:43871). El primer usuario puede registrarse; después, el registro requiere `SIGNUP_CODE`. Sin código, queda cerrado. También puedes crear un usuario local con `pnpm user:create <usuario> <email>`.
+Abre [localhost:43871](http://localhost:43871). El primer usuario puede registrarse y queda como admin; después, el registro requiere un código de invitación de un solo uso que el admin genera en el panel Admin. También puedes crear un usuario local con `pnpm user:create <usuario> <email>`.
 
 ## Comandos
 
@@ -61,7 +61,7 @@ El servidor MCP está en `https://baul.raulcano.dev/api/mcp`, con OAuth y permis
 claude mcp add --transport http baul https://baul.raulcano.dev/api/mcp
 ```
 
-En producción, configura `BETTER_AUTH_SECRET` y, si quieres habilitar invitaciones, `SIGNUP_CODE` con `pnpm wrangler secret put <NOMBRE>`. Las credenciales bancarias se gestionan desde Ajustes. Los archivos de entorno y la base local no se incluyen en Git.
+En producción, configura `BETTER_AUTH_SECRET` con `pnpm wrangler secret put BETTER_AUTH_SECRET`. Las credenciales bancarias se gestionan desde Ajustes. Los archivos de entorno y la base local no se incluyen en Git.
 
 ## Enable Banking
 

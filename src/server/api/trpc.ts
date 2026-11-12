@@ -126,3 +126,11 @@ export const protectedProcedure = t.procedure
       },
     });
   });
+
+/** Only for the admin (the baúl's owner): the admin panel */
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.session.user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next();
+});

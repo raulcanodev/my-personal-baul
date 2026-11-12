@@ -17,9 +17,11 @@ type Mode = "login" | "register";
 export function AuthForm({
   mode,
   signup,
+  inviteCode,
 }: {
   mode: Mode;
   signup: SignupStatus;
+  inviteCode?: string;
 }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
@@ -135,6 +137,8 @@ export function AuthForm({
                 aria-label="Código de invitación"
                 placeholder="Código de invitación"
                 autoComplete="off"
+                autoCapitalize="characters"
+                defaultValue={inviteCode}
                 required
                 className="h-12"
               />
@@ -158,23 +162,23 @@ export function AuthForm({
               )}
             </Button>
           </form>
-          {register
-            ? signup !== "open" && (
-                <Link
-                  href="/login"
-                  className="text-muted-foreground mt-6 block text-center text-sm"
-                >
-                  Ya tengo cuenta
-                </Link>
-              )
-            : signup !== "closed" && (
-                <Link
-                  href="/registro"
-                  className="text-muted-foreground mt-6 block text-center text-sm"
-                >
-                  Crear cuenta
-                </Link>
-              )}
+          {register ? (
+            signup !== "open" && (
+              <Link
+                href="/login"
+                className="text-muted-foreground mt-6 block text-center text-sm"
+              >
+                Ya tengo cuenta
+              </Link>
+            )
+          ) : (
+            <Link
+              href="/registro"
+              className="text-muted-foreground mt-6 block text-center text-sm"
+            >
+              Crear cuenta
+            </Link>
+          )}
         </div>
       </div>
       <footer className="text-muted-foreground flex justify-center gap-6 text-sm">

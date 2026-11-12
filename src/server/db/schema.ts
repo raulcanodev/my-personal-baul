@@ -20,6 +20,9 @@ const timestamps = {
     .notNull(),
 };
 
+export const USER_ROLES = ["user", "admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -30,6 +33,8 @@ export const user = sqliteTable("user", {
   image: text("image"),
   username: text("username").unique(),
   displayUsername: text("display_username"),
+  /** "admin" sees the admin panel and creates invite codes; the first user is the admin */
+  role: text("role", { enum: USER_ROLES }).notNull().default("user"),
   ...timestamps,
 });
 
@@ -63,6 +68,19 @@ export const account = sqliteTable("account", {
   }),
   scope: text("scope"),
   password: text("password"),
+  ...timestamps,
+});
+
+/** Single-use codes the admin creates; signing up (after the first user) needs one */
+export const inviteCodes = sqliteTable("invite_codes", {
+  code: text("code").primaryKey(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Who it is for, so the admin remembers */
+  note: text("note"),
+  usedBy: text("used_by").references(() => user.id, { onDelete: "set null" }),
+  usedAt: integer("used_at", { mode: "timestamp_ms" }),
   ...timestamps,
 });
 

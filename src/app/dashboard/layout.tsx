@@ -10,6 +10,11 @@ export default async function DashboardLayout({
 }) {
   const { user } = await requireSession();
   return (
-    <AppShell userName={user.displayUsername ?? user.name}>{children}</AppShell>
+    <AppShell
+      userName={user.displayUsername ?? user.name}
+      isAdmin={user.role === "admin"}
+    >
+      {children}
+    </AppShell>
   );
 }

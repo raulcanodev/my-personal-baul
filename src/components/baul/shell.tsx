@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { ArrowLeft, LogOut, Settings2 } from "lucide-react";
+import { ArrowLeft, LogOut, Settings2, ShieldCheck } from "lucide-react";
 import {
   mainNavigation,
   moreNavigation,
@@ -30,19 +30,26 @@ import {
   isSettingsPath,
 } from "./settings/settings-nav";
 
+const ADMIN_HREF = "/dashboard/admin";
+
 export function AppShell({
   userName,
+  isAdmin,
   children,
 }: {
   userName: string;
+  isAdmin: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const inSettings = isSettingsPath(pathname);
+  const inAdmin = isActive(pathname, ADMIN_HREF);
   const current = inSettings
     ? (activeSettingsItem(pathname)?.name ?? "Ajustes")
-    : (navigation.find((n) => isActive(pathname, n.href))?.name ?? "Resumen");
+    : inAdmin
+      ? "Admin"
+      : (navigation.find((n) => isActive(pathname, n.href))?.name ?? "Resumen");
   const initials = userName.slice(0, 2).toUpperCase();
   async function signOut() {
     await authClient.signOut();
@@ -135,6 +142,16 @@ export function AppShell({
           </>
         )}
         <div className="mt-auto space-y-5 pt-8">
+          {isAdmin && (
+            <Link
+              href={ADMIN_HREF}
+              aria-current={inAdmin ? "page" : undefined}
+              className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${inAdmin ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+            >
+              <ShieldCheck className="size-4" strokeWidth={1.5} />
+              Admin
+            </Link>
+          )}
           <div className="flex items-center gap-3 px-3 pt-3">
             <span className="bg-muted flex size-8 items-center justify-center rounded-lg text-xs">
               {initials}
@@ -184,6 +201,14 @@ export function AppShell({
                     Ajustes
                   </Link>
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href={ADMIN_HREF}>
+                      <ShieldCheck className="size-4" />
+                      Admin
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={signOut}>
                   <LogOut className="size-4" />
                   Cerrar sesión

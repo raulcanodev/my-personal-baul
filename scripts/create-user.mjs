@@ -42,7 +42,8 @@ const hash = await hashPassword(password);
 const handle = username.toLowerCase();
 
 const sql = [
-  `INSERT INTO user (id, name, email, email_verified, username, display_username, created_at, updated_at) VALUES (${q(userId)}, ${q(username)}, ${q(email.toLowerCase())}, 1, ${q(handle)}, ${q(username)}, ${now}, ${now});`,
+  // The first user owns the baúl and is its admin
+  `INSERT INTO user (id, name, email, email_verified, username, display_username, role, created_at, updated_at) VALUES (${q(userId)}, ${q(username)}, ${q(email.toLowerCase())}, 1, ${q(handle)}, ${q(username)}, CASE WHEN (SELECT count(*) FROM user) = 0 THEN 'admin' ELSE 'user' END, ${now}, ${now});`,
   `INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (${q(randomUUID())}, ${q(userId)}, 'credential', ${q(userId)}, ${q(hash)}, ${now}, ${now});`,
 ].join("\n");
 
