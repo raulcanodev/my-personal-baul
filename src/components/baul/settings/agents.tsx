@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { Bot, Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -121,17 +122,22 @@ export function AgentsSettings() {
                         : "sin acceso activo"}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={disconnect.isPending}
-                  onClick={() => {
-                    if (confirm(`¿Desconectar ${app.name}?`))
-                      disconnect.mutate({ clientId: app.clientId });
-                  }}
+                <ConfirmDialog
+                  title={`¿Desconectar ${app.name}?`}
+                  description="Perderá el acceso y tendrá que volver a pedirte permiso."
+                  confirmLabel="Desconectar"
+                  onConfirm={() =>
+                    disconnect.mutate({ clientId: app.clientId })
+                  }
                 >
-                  Desconectar
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={disconnect.isPending}
+                  >
+                    Desconectar
+                  </Button>
+                </ConfirmDialog>
               </li>
             ))}
           </ul>

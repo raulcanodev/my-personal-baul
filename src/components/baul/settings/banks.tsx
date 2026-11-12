@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import Link from "next/link";
 import { Landmark, Link2 } from "lucide-react";
 import { toast } from "sonner";
@@ -69,21 +70,16 @@ export function BanksSettings() {
                     </Link>
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `¿Desconectar ${c.name}? Se borra la API key; cuentas y movimientos se quedan.`,
-                      )
-                    ) {
-                      remove.mutate({ id: c.id });
-                    }
-                  }}
+                <ConfirmDialog
+                  title={`¿Desconectar ${c.name}?`}
+                  description="Se borra la API key; cuentas y movimientos se quedan."
+                  confirmLabel="Desconectar"
+                  onConfirm={() => remove.mutate({ id: c.id })}
                 >
-                  Desconectar
-                </Button>
+                  <Button variant="ghost" size="sm" disabled={remove.isPending}>
+                    Desconectar
+                  </Button>
+                </ConfirmDialog>
               </li>
             ))}
           </ul>

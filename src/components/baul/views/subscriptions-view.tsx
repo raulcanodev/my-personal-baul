@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { useMemo, useState } from "react";
 import {
   Briefcase,
@@ -447,14 +448,20 @@ function SubscriptionDialog({
           </label>
           <DialogFooter className="gap-2">
             {editing && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="sm:mr-auto"
-                onClick={() => remove.mutate({ id: editing.id })}
+              <ConfirmDialog
+                title={`¿Eliminar ${editing.name}?`}
+                description="Esta acción no se puede deshacer."
+                onConfirm={() => remove.mutate({ id: editing.id })}
               >
-                Eliminar
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="sm:mr-auto"
+                  disabled={remove.isPending}
+                >
+                  Eliminar
+                </Button>
+              </ConfirmDialog>
             )}
             <Button
               type="submit"

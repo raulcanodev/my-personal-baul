@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { useState, type ReactNode } from "react";
 import { CalendarClock, Plus, TriangleAlert, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -277,15 +278,20 @@ function FormDialog({
           {children}
           <DialogFooter className="gap-2">
             {onDelete && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="sm:mr-auto"
-                disabled={pending}
-                onClick={onDelete}
+              <ConfirmDialog
+                title="¿Seguro que quieres eliminarlo?"
+                description="Esta acción no se puede deshacer."
+                onConfirm={onDelete}
               >
-                Eliminar
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="sm:mr-auto"
+                  disabled={pending}
+                >
+                  Eliminar
+                </Button>
+              </ConfirmDialog>
             )}
             <Button type="submit" disabled={pending}>
               Guardar

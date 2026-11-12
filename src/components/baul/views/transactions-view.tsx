@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -429,12 +430,15 @@ function TransactionRow({
         {money(t.amountCents, t.currency, { sign: true })}
       </span>
       {isManual && (
-        <button
-          aria-label="Eliminar"
-          onClick={() => remove.mutate({ id: t.id })}
+        <ConfirmDialog
+          title="¿Eliminar este movimiento?"
+          description="Esta acción no se puede deshacer."
+          onConfirm={() => remove.mutate({ id: t.id })}
         >
-          <Trash2 className="text-muted-foreground size-4" />
-        </button>
+          <button aria-label="Eliminar">
+            <Trash2 className="text-muted-foreground size-4" />
+          </button>
+        </ConfirmDialog>
       )}
     </li>
   );

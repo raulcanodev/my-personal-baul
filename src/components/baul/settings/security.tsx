@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { useState } from "react";
 import { Laptop, Loader2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
@@ -174,17 +175,20 @@ function Sessions() {
       bare
       action={
         others.length > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={async () => {
+          <ConfirmDialog
+            title="¿Cerrar las demás sesiones?"
+            description="Tendrás que volver a iniciar sesión en esos dispositivos."
+            confirmLabel="Cerrar sesiones"
+            onConfirm={async () => {
               await authClient.revokeOtherSessions();
               toast.success("Las demás sesiones se han cerrado");
               await refresh();
             }}
           >
-            Cerrar las demás
-          </Button>
+            <Button variant="secondary" size="sm">
+              Cerrar las demás
+            </Button>
+          </ConfirmDialog>
         )
       }
     >
@@ -212,17 +216,20 @@ function Sessions() {
                 </p>
               </div>
               {!thisDevice && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
+                <ConfirmDialog
+                  title="¿Cerrar esta sesión?"
+                  description={`Se cerrará la sesión en ${device.label}.`}
+                  confirmLabel="Cerrar sesión"
+                  onConfirm={async () => {
                     await authClient.revokeSession({ token: s.token });
                     toast.success("Sesión cerrada");
                     await refresh();
                   }}
                 >
-                  Cerrar
-                </Button>
+                  <Button variant="ghost" size="sm">
+                    Cerrar
+                  </Button>
+                </ConfirmDialog>
               )}
             </li>
           );
