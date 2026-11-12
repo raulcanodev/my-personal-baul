@@ -10,10 +10,7 @@ import { syncConnectionById } from "@/server/finance/connections";
 import { getEncryptionSecret } from "@/server/finance/context";
 
 export async function GET(request: Request) {
-  const destination = new URL(
-    "/dashboard/ajustes/bancos/conectar",
-    getBaseURL(),
-  );
+  const destination = new URL("/conectar-banco", getBaseURL());
   const finish = (status: string) => {
     destination.searchParams.set("result", status);
     const response = NextResponse.redirect(destination, 303);

@@ -16,7 +16,7 @@ export function ConnectApiBank({ provider }: { provider: "wise" | "mercury" }) {
     onSuccess: async (result) => {
       await utils.finance.invalidate();
       router.push(
-        `/dashboard/ajustes/bancos/conectar?result=${result.errors.length ? "partial" : "connected"}`,
+        `/conectar-banco?result=${result.errors.length ? "partial" : "connected"}`,
       );
       router.refresh();
     },
@@ -72,7 +72,7 @@ export function ConnectApiBank({ provider }: { provider: "wise" | "mercury" }) {
           {add.error.message}
         </p>
       )}
-      <Button type="submit" disabled={add.isPending}>
+      <Button type="submit" className="h-12 w-full" disabled={add.isPending}>
         {add.isPending && <Loader2 className="size-4 animate-spin" />}
         {add.isPending ? "Conectando…" : `Conectar ${name}`}
       </Button>

@@ -63,7 +63,7 @@ export function AccountsView() {
               Cuenta manual
             </Button>
             <Button asChild>
-              <Link href="/dashboard/ajustes/bancos/conectar">
+              <Link href="/conectar-banco">
                 <Link2 className="size-4" />
                 Conectar banco
               </Link>

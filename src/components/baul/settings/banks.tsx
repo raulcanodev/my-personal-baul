@@ -26,7 +26,7 @@ export function BanksSettings() {
         title="Bancos"
         actions={
           <Button asChild>
-            <Link href="/dashboard/ajustes/bancos/conectar">
+            <Link href="/conectar-banco">
               <Link2 className="size-4" />
               Conectar banco
             </Link>
@@ -64,7 +64,7 @@ export function BanksSettings() {
                 </div>
                 {c.provider === "enablebanking" && (
                   <Button asChild variant="ghost" size="sm">
-                    <Link href="/dashboard/ajustes/bancos/conectar?method=bank">
+                    <Link href="/conectar-banco?method=bank">
                       Renovar permiso
                     </Link>
                   </Button>

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     );
   } catch {
     return NextResponse.redirect(
-      new URL("/dashboard/ajustes/bancos/conectar?error=start", getBaseURL()),
+      new URL("/conectar-banco?error=start", getBaseURL()),
       303,
     );
   }
