@@ -107,7 +107,7 @@ export function OverviewView() {
         </Link>
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="bg-muted rounded-xl p-6">
           <div className="flex items-start justify-between">
             <div>
