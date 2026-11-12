@@ -92,7 +92,7 @@ export async function forecastCashflow(
   const [accounts, items, baseline] = await Promise.all([
     listAccounts(ctx),
     recurringItems(ctx, input.scope),
-    monthlyBaseline(ctx, 3, input.scope),
+    monthlyBaseline(ctx, 6, input.scope),
   ]);
   const { rates } = items;
   const scopedAccounts = accounts.items.filter(
@@ -246,7 +246,7 @@ export async function forecastCashflow(
     assumptions: [
       "Saldos actuales convertidos a EUR al cambio de hoy; las transferencias entre cuentas propias no cuentan.",
       includeVariable
-        ? `Gasto variable = media de ${baseline.months} meses completos (${baseline.from} a ${baseline.to}) sin suscripciones, cuotas de deudas, gastos puntuales ni transferencias y con los reembolsos restados, repartido por días.${baseline.excludedOneOffCents ? ` Quedan fuera ${Math.round(baseline.excludedOneOffCents / 100)} € de gastos puntuales.` : ""}`
+        ? `Gasto variable = mes típico (mediana) de los últimos ${baseline.months} meses completos (${baseline.from} a ${baseline.to}) sin suscripciones, cuotas de deudas, gastos puntuales ni transferencias y con los reembolsos restados, repartido por días.${baseline.excludedOneOffCents ? ` Quedan fuera ${Math.round(baseline.excludedOneOffCents / 100)} € de gastos puntuales.` : ""}`
         : "Sin gasto variable: solo lo previsto y lo recurrente.",
       input.includeHistoricalIncome
         ? "Ingresos = flujos previstos + media histórica de ingresos."
@@ -281,7 +281,7 @@ export async function simulateScenario(
   const [accounts, items, baseline] = await Promise.all([
     listAccounts(ctx),
     recurringItems(ctx, input.scope),
-    monthlyBaseline(ctx, 3, input.scope),
+    monthlyBaseline(ctx, 6, input.scope),
   ]);
   const { rates } = items;
   const start =

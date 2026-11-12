@@ -60,7 +60,7 @@ export const planningTools = [
     name: "prevision_tesoreria",
     title: "Previsión de tesorería",
     description:
-      "Cuánto dinero habrá dentro de N días (por defecto 30, 60 y 90). Parte del saldo actual en EUR y suma lo fechado (flujos previstos como facturas o alquiler, suscripciones en su fecha de cobro, cuotas de préstamos) más el gasto variable al ritmo medio de los últimos 3 meses. Por defecto no extrapola ingresos pasados: los ingresos esperados se apuntan con guardar_flujo_previsto. Devuelve próximos movimientos, supuestos y cuentas con saldo desactualizado. Usa `ambito` para ver solo el dinero personal o solo el de la empresa.",
+      "Cuánto dinero habrá dentro de N días (por defecto 30, 60 y 90). Parte del saldo actual en EUR y suma lo fechado (flujos previstos como facturas o alquiler, suscripciones en su fecha de cobro, cuotas de préstamos) más el gasto variable de un mes típico (mediana de los últimos 6 meses, así un mes raro no dispara la previsión). Por defecto no extrapola ingresos pasados: los ingresos esperados se apuntan con guardar_flujo_previsto. Devuelve próximos movimientos, supuestos y cuentas con saldo desactualizado. Usa `ambito` para ver solo el dinero personal o solo el de la empresa.",
     risk: "read",
     input: z.object({
       dias: z.array(z.number().int().min(1).max(730)).optional(),
@@ -110,6 +110,12 @@ export const planningTools = [
           ingresos: money(f.baseline.avgIncomeCents),
           gasto_variable: money(f.baseline.avgVariableSpendingCents),
           gastos_puntuales_excluidos: money(f.baseline.excludedOneOffCents),
+          gasto_variable_por_mes: Object.fromEntries(
+            Object.entries(f.baseline.monthlyVariableCents).map(([m, c]) => [
+              m,
+              money(c),
+            ]),
+          ),
         },
         cuentas: f.accounts.map((a) => ({
           nombre: a.name,
@@ -205,7 +211,7 @@ export const planningTools = [
     name: "simular_escenario",
     title: "Simular escenario",
     description:
-      "Proyecta el saldo mes a mes con y sin un cambio: «¿y si dejo el trabajo?» (sustituir_ingresos_mensuales = 0), «¿y si pago 425 € de alquiler?» (cambio de -425), «¿puedo con un coche de 250 €/mes?». La base mensual sale de ingresos (flujos previstos; la media de 3 meses solo con incluir_ingresos_historicos), suscripciones, cuotas de deudas y gasto variable medio. Devuelve saldo final, saldo mínimo y el mes en que se acabaría el dinero, en ambos casos. Importes en EUR; los cambios son mensuales (positivo = entra dinero).",
+      "Proyecta el saldo mes a mes con y sin un cambio: «¿y si dejo el trabajo?» (sustituir_ingresos_mensuales = 0), «¿y si pago 425 € de alquiler?» (cambio de -425), «¿puedo con un coche de 250 €/mes?». La base mensual sale de ingresos (flujos previstos; la mediana de 6 meses solo con incluir_ingresos_historicos), suscripciones, cuotas de deudas y gasto variable de un mes típico. Devuelve saldo final, saldo mínimo y el mes en que se acabaría el dinero, en ambos casos. Importes en EUR; los cambios son mensuales (positivo = entra dinero).",
     risk: "read",
     input: z.object({
       cambios: z
@@ -232,7 +238,7 @@ export const planningTools = [
         .boolean()
         .default(false)
         .describe(
-          "suma la media de ingresos de los últimos 3 meses; por defecto solo cuentan los flujos previstos",
+          "suma la mediana mensual de ingresos de los últimos 6 meses; por defecto solo cuentan los flujos previstos",
         ),
       saldo_inicial: z
         .number()
@@ -685,7 +691,7 @@ export const planningTools = [
     name: "guardar_categoria",
     title: "Crear o actualizar categoría",
     description:
-      "Crea una categoría (Legal, Formación, Viajes…) o la cambia con `id`. `tipo`: expense, income o transfer (transfer no cuenta como gasto ni ingreso). `ambito`: personal o work.",
+      "Crea una categoría (Legal, Formación, Viajes…) o la cambia con `id`. `tipo`: expense, income o transfer (transfer no cuenta como gasto ni ingreso). `ambito`: personal o work. `dinero_prestado`: true si es dinero que tiene que volver (sigue contando como gasto, pero el inicio lleva la cuenta de lo pendiente por persona).",
     risk: "write",
     input: z.object({
       id: z.string().optional(),
@@ -696,6 +702,7 @@ export const planningTools = [
         .string()
         .regex(/^#[0-9a-f]{6}$/i)
         .optional(),
+      dinero_prestado: z.boolean().optional(),
     }),
     run: async (i, ctx) => {
       if (i.id) {
@@ -704,6 +711,7 @@ export const planningTools = [
           kind: i.tipo,
           scope: i.ambito,
           color: i.color,
+          isLending: i.dinero_prestado,
         });
         return { id: i.id, actualizada: true };
       }
@@ -714,6 +722,7 @@ export const planningTools = [
         kind: i.tipo ?? "expense",
         scope: i.ambito ?? "personal",
         color: i.color,
+        isLending: i.dinero_prestado,
       });
       return { id: c.id, creada: true };
     },

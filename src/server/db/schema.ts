@@ -106,6 +106,10 @@ export const categories = sqliteTable(
     kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("expense"),
     scope: text("scope", { enum: SCOPES }).notNull().default("personal"),
     color: text("color").notNull().default("#a8a29e"),
+    /** Money lent ("tiene que volver"): still spending, but the home page tracks what is owed */
+    isLending: integer("is_lending", { mode: "boolean" })
+      .notNull()
+      .default(false),
     ...timestamps,
   },
   (t) => [uniqueIndex("categories_user_name").on(t.userId, t.name)],

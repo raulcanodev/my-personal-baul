@@ -165,6 +165,7 @@ export const financeRouter = createTRPCRouter({
           kind: z.enum(CATEGORY_KINDS).optional(),
           scope: scope.optional(),
           color: z.string().optional(),
+          isLending: z.boolean().optional(),
         }),
       )
       .mutation(({ ctx, input: { id, ...rest } }) =>

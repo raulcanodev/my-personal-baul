@@ -241,6 +241,7 @@ export const financeTools = [
         nombre: c.name,
         tipo: c.kind,
         ambito: c.scope,
+        dinero_prestado: c.isLending,
       })),
   }),
 

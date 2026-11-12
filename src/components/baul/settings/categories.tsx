@@ -1,7 +1,8 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/baul/confirm-dialog";
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { HandCoins, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -167,17 +168,30 @@ function CategoryRow({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <button
-        aria-label={`Eliminar ${c.name}`}
-        className="text-muted-foreground hover:text-foreground p-1"
-        onClick={() =>
-          confirm(
-            `¿Eliminar ${c.name}? Sus movimientos quedarán sin categoría.`,
-          ) && remove.mutate({ id: c.id })
-        }
+      {c.kind === "expense" && (
+        <button
+          type="button"
+          aria-pressed={c.isLending}
+          aria-label={`${c.name}: dinero prestado que tiene que volver`}
+          title="Dinero prestado: el inicio lleva la cuenta de lo que te deben"
+          onClick={() => update.mutate({ id: c.id, isLending: !c.isLending })}
+          className={`rounded-md p-1 transition-colors ${c.isLending ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <HandCoins className="size-4" />
+        </button>
+      )}
+      <ConfirmDialog
+        title={`¿Eliminar ${c.name}?`}
+        description="Sus movimientos quedarán sin categoría."
+        onConfirm={() => remove.mutate({ id: c.id })}
       >
-        <Trash2 className="size-4" />
-      </button>
+        <button
+          aria-label={`Eliminar ${c.name}`}
+          className="text-muted-foreground hover:text-foreground p-1"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </ConfirmDialog>
     </li>
   );
 }

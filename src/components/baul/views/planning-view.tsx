@@ -377,7 +377,7 @@ function ForecastSection({ scope }: { scope?: Scope }) {
               label="Hoy"
               value={money(f.currentBalanceCents)}
               icon={<Wallet className="size-4" />}
-              note={`Gasto variable medio ${money(f.baseline.avgVariableSpendingCents)}/mes`}
+              note={`Gasto variable típico ${money(f.baseline.avgVariableSpendingCents)}/mes`}
             />
             {f.forecasts.map((p) => (
               <StatCard

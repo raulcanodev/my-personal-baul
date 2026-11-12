@@ -65,7 +65,13 @@ export async function listCategories({ db, userId }: FinanceContext) {
 
 export async function createCategory(
   { db, userId }: FinanceContext,
-  input: { name: string; kind: Kind; scope: Scope; color?: string },
+  input: {
+    name: string;
+    kind: Kind;
+    scope: Scope;
+    color?: string;
+    isLending?: boolean;
+  },
 ) {
   const [row] = await db
     .insert(categories)
@@ -77,7 +83,13 @@ export async function createCategory(
 export async function updateCategory(
   { db, userId }: FinanceContext,
   id: string,
-  input: Partial<{ name: string; kind: Kind; scope: Scope; color: string }>,
+  input: Partial<{
+    name: string;
+    kind: Kind;
+    scope: Scope;
+    color: string;
+    isLending: boolean;
+  }>,
 ) {
   await db
     .update(categories)

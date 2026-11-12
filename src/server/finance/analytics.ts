@@ -262,13 +262,15 @@ export async function spendingAnalytics(
 }
 
 /**
- * Average monthly income and variable spending over the last full months (EUR, no transfers,
+ * Typical monthly income and variable spending over the last full months (EUR, no transfers,
  * no subscription charges, no one-off expenses, refunds netted): the baseline the forecast and
- * the scenarios start from.
+ * the scenarios start from. It is the median month, not the mean, so one unusual month (a car,
+ * a move) does not set the pace for the next year; months with no movements at all (before the
+ * bank was connected) are left out.
  */
 export async function monthlyBaseline(
   { db, userId }: FinanceContext,
-  months = 3,
+  months = 6,
   scope?: Scope,
 ) {
   const now = new Date();
@@ -297,8 +299,10 @@ export async function monthlyBaseline(
         sql`, `,
       )})`
     : sql`1`;
+  const month = sql<string>`strftime('%Y-%m', ${transactions.date} / 1000, 'unixepoch')`;
   const rows = await db
     .select({
+      month,
       currency: transactions.currency,
       inCents: incomeSql,
       variableOutCents: sql<number>`coalesce(sum(case when ${transactions.subscriptionId} is null and not ${transactions.isOneOff} and ${notDebt} and (${transactions.amountCents} < 0 or ${categories.kind} = 'expense') then -${transactions.amountCents} end), 0)`,
@@ -308,26 +312,40 @@ export async function monthlyBaseline(
     .innerJoin(moneyAccounts, eq(transactions.accountId, moneyAccounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...where))
-    .groupBy(transactions.currency);
-  const income = rows.reduce(
-    (n, r) => n + toBase(r.inCents, r.currency, rates),
-    0,
-  );
-  const variable = rows.reduce(
-    (n, r) => n + toBase(r.variableOutCents, r.currency, rates),
-    0,
-  );
-  const oneOff = rows.reduce(
-    (n, r) => n + toBase(r.oneOffCents, r.currency, rates),
-    0,
-  );
+    .groupBy(month, transactions.currency);
+
+  const perMonth = new Map<string, { income: number; variable: number }>();
+  let oneOff = 0;
+  for (const r of rows) {
+    const m = perMonth.get(r.month) ?? { income: 0, variable: 0 };
+    m.income += toBase(r.inCents, r.currency, rates);
+    m.variable += toBase(r.variableOutCents, r.currency, rates);
+    perMonth.set(r.month, m);
+    oneOff += toBase(r.oneOffCents, r.currency, rates);
+  }
+  const monthsWithData = [...perMonth.keys()].sort();
+  const values = [...perMonth.values()];
   return {
-    months,
-    from: iso(from),
+    months: monthsWithData.length,
+    from: monthsWithData[0] ? `${monthsWithData[0]}-01` : iso(from),
     to: iso(new Date(to.getTime() - DAY_MS)),
-    avgIncomeCents: Math.round(income / months),
-    avgVariableSpendingCents: Math.max(0, Math.round(variable / months)),
+    avgIncomeCents: Math.round(median(values.map((v) => v.income))),
+    avgVariableSpendingCents: Math.max(
+      0,
+      Math.round(median(values.map((v) => v.variable))),
+    ),
+    /** Each month's variable spending, so the median can be checked against the months */
+    monthlyVariableCents: Object.fromEntries(
+      monthsWithData.map((m) => [m, Math.round(perMonth.get(m)!.variable)]),
+    ),
     /** One-off expenses of those months, left out of the average */
     excludedOneOffCents: oneOff,
   };
+}
+
+function median(values: number[]) {
+  if (!values.length) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 }
