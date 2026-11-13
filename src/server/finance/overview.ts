@@ -12,12 +12,26 @@ const monthRange = (month: string) => {
   return { from: new Date(y!, m! - 1, 1), to: new Date(y!, m!, 1) };
 };
 
-/** Month summary: totals in EUR, spending by category, and the last six months */
-export async function getOverview(ctx: FinanceContext, month: string) {
+export const OVERVIEW_RANGES = [3, 6, 12] as const;
+export type OverviewRange = (typeof OVERVIEW_RANGES)[number];
+
+/**
+ * Month summary: totals in EUR, spending by category, and the `range` months ending at `month`
+ * (income, spending and spending per category for each), plus an end-of-month projection.
+ */
+export async function getOverview(
+  ctx: FinanceContext,
+  month: string,
+  range: OverviewRange = 6,
+) {
   const { db, userId } = ctx;
   const rates = await getRates();
   const { from, to } = monthRange(month);
-  const sixMonthsAgo = new Date(from.getFullYear(), from.getMonth() - 5, 1);
+  const rangeStart = new Date(
+    from.getFullYear(),
+    from.getMonth() - (range - 1),
+    1,
+  );
 
   const [byCategory, history, accounts, subs, uncategorized, pace, lending] =
     await Promise.all([
@@ -44,6 +58,9 @@ export async function getOverview(ctx: FinanceContext, month: string) {
       db
         .select({
           month: sql<string>`strftime('%Y-%m', ${transactions.date} / 1000, 'unixepoch')`,
+          categoryId: transactions.categoryId,
+          name: categories.name,
+          color: categories.color,
           kind: categories.kind,
           currency: transactions.currency,
           inCents: incomeSql,
@@ -54,11 +71,11 @@ export async function getOverview(ctx: FinanceContext, month: string) {
         .where(
           and(
             eq(transactions.userId, userId),
-            gte(transactions.date, sixMonthsAgo),
+            gte(transactions.date, rangeStart),
             lt(transactions.date, to),
           ),
         )
-        .groupBy(sql`1`, categories.kind, transactions.currency),
+        .groupBy(sql`1`, transactions.categoryId, transactions.currency),
       listAccounts(ctx),
       listSubscriptions(ctx),
       db
@@ -103,24 +120,71 @@ export async function getOverview(ctx: FinanceContext, month: string) {
     }
   }
 
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(from.getFullYear(), from.getMonth() - 5 + i, 1);
+  const months = Array.from({ length: range }, (_, i) => {
+    const d = new Date(
+      from.getFullYear(),
+      from.getMonth() - (range - 1) + i,
+      1,
+    );
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+  // Categories seen in the period, with their spending over the whole period
+  const periodCategories = new Map<
+    string,
+    {
+      key: string;
+      id: string | null;
+      name: string;
+      color: string;
+      cents: number;
+    }
+  >();
   const monthly = months.map((m) => {
-    const rows = history.filter((h) => h.month === m && counts(h.kind));
+    let incomeCents = 0;
+    let expenseCents = 0;
+    const byCategory: Record<string, number> = {};
+    for (const r of history) {
+      if (r.month !== m || !counts(r.kind)) continue;
+      const inBase = toBase(r.inCents, r.currency, rates);
+      const outBase = toBase(r.outCents, r.currency, rates);
+      incomeCents += inBase;
+      expenseCents += outBase;
+      if (outBase === 0) continue;
+      const key = r.categoryId ?? "none";
+      byCategory[key] = (byCategory[key] ?? 0) + outBase;
+      const c = periodCategories.get(key) ?? {
+        key,
+        id: r.categoryId,
+        name: r.name ?? "Sin categoría",
+        color: r.color ?? "#d6d3d1",
+        cents: 0,
+      };
+      c.cents += outBase;
+      periodCategories.set(key, c);
+    }
+    for (const k of Object.keys(byCategory))
+      byCategory[k] = Math.max(0, Math.round(byCategory[k]!));
     return {
       month: m,
-      incomeCents: rows.reduce(
-        (n, r) => n + toBase(r.inCents, r.currency, rates),
-        0,
-      ),
-      expenseCents: rows.reduce(
-        (n, r) => n + toBase(r.outCents, r.currency, rates),
-        0,
-      ),
+      incomeCents: Math.round(incomeCents),
+      expenseCents: Math.round(expenseCents),
+      byCategory,
     };
   });
+
+  // Where this month will likely end: what is spent plus what a typical month still spends from
+  // today to its end (or a straight line when there are no previous months to compare)
+  const spentSoFar = pace.currentCents.at(-1) ?? 0;
+  const projectedExpenseCents = !pace.isCurrent
+    ? spentSoFar
+    : pace.monthsCompared > 0
+      ? spentSoFar +
+        Math.max(
+          0,
+          (pace.typicalCents.at(-1) ?? 0) -
+            (pace.typicalCents[pace.today - 1] ?? 0),
+        )
+      : Math.round((spentSoFar / Math.max(1, pace.today)) * pace.daysInMonth);
 
   return {
     month,
@@ -131,6 +195,12 @@ export async function getOverview(ctx: FinanceContext, month: string) {
       .filter((c) => c.cents > 0)
       .sort((a, b) => b.cents - a.cents),
     monthly,
+    range,
+    periodCategories: [...periodCategories.values()]
+      .filter((c) => c.cents > 0)
+      .sort((a, b) => b.cents - a.cents)
+      .map((c) => ({ ...c, cents: Math.round(c.cents) })),
+    projectedExpenseCents: Math.round(projectedExpenseCents),
     totalBalanceCents: accounts.totalCents,
     balanceByScope: accounts.byScope,
     accountsCount: accounts.items.length,

@@ -142,8 +142,15 @@ const flowInput = z.object({
 
 export const financeRouter = createTRPCRouter({
   overview: financeProcedure
-    .input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }))
-    .query(({ ctx, input }) => getOverview(ctx.finance, input.month)),
+    .input(
+      z.object({
+        month: z.string().regex(/^\d{4}-\d{2}$/),
+        range: z.union([z.literal(3), z.literal(6), z.literal(12)]).default(6),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      getOverview(ctx.finance, input.month, input.range),
+    ),
 
   categories: createTRPCRouter({
     list: financeProcedure.query(({ ctx }) => listCategories(ctx.finance)),
